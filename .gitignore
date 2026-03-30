@@ -9,3 +9,4 @@ dist/
 vault/
 vault2/
 .data/
+wrangler.toml

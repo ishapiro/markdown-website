@@ -4,9 +4,9 @@ pages_build_output_dir = ".output/public"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "cogitations-db"
-database_id = "e87c5a7f-5ddc-4147-bbad-d17d4aa83f2e"
+database_name = "your-d1-database-name"
+database_id = "your-d1-database-id"
 
 [[r2_buckets]]
 binding = "BLOB"
-bucket_name = "cogitations-vault"
+bucket_name = "your-r2-bucket-name"
