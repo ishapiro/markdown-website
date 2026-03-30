@@ -1,0 +1,31 @@
+{
+  "name": "markdown-website",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "preview": "nuxt preview",
+    "deploy": "nuxthub deploy",
+    "db:migrate": "wrangler d1 execute cogitations-db --local --file=server/database/schema.sql",
+    "db:migrate:remote": "wrangler d1 execute cogitations-db --file=server/database/schema.sql",
+    "migrate": "node migrate.mjs"
+  },
+  "dependencies": {
+    "@nuxthub/core": "latest",
+    "lucide-vue-next": "latest",
+    "marked": "^12.0.0",
+    "nuxt": "^3.13.0",
+    "vue": "latest",
+    "vue-router": "latest",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@nuxtjs/tailwindcss": "latest",
+    "@tailwindcss/typography": "latest",
+    "better-sqlite3": "^12.8.0",
+    "globby": "^14.0.0",
+    "typescript": "latest",
+    "wrangler": "latest"
+  }
+}

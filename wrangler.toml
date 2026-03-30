@@ -1,0 +1,12 @@
+name = "cogitations-nuxt"
+compatibility_date = "2024-07-30"
+pages_build_output_dir = ".output/public"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cogitations-db"
+database_id = "e87c5a7f-5ddc-4147-bbad-d17d4aa83f2e"
+
+[[r2_buckets]]
+binding = "BLOB"
+bucket_name = "cogitations-vault"

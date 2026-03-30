@@ -1,0 +1,4 @@
+# Copy this to .dev.vars (never commit .dev.vars)
+# Used by Wrangler / NuxtHub for local development
+
+ADMIN_EMAIL=you@example.com
