@@ -8,7 +8,8 @@ const depth = computed(() => props.depth ?? 0)
 const open = ref(!!props.node.path)
 
 const route = useRoute()
-const isActive = computed(() => route.path === props.node.path)
+const nodePath = computed(() => props.node.path || `/${props.node.slug}`)
+const isActive = computed(() => route.path === nodePath.value)
 </script>
 
 <template>
@@ -17,7 +18,7 @@ const isActive = computed(() => route.path === props.node.path)
       class="flex items-center gap-1 rounded cursor-pointer group"
       :style="{ paddingLeft: `${8 + depth * 12}px` }"
       :class="[
-        'py-0.5 pr-2',
+        'py-1.5 md:py-0.5 pr-2',
         isActive ? 'bg-vault-surface text-vault-accent' : 'text-vault-text hover:bg-vault-surface/50',
       ]"
     >
@@ -34,15 +35,15 @@ const isActive = computed(() => route.path === props.node.path)
       </button>
       <span v-else class="w-3 shrink-0" />
 
-      <!-- Virtual folder: not clickable, toggle children on click -->
-      <span
+      <!-- Virtual folder: clickable link to folder index -->
+      <NuxtLink
         v-if="!node.path"
-        class="flex-1 text-xs truncate py-0.5 font-semibold text-vault-muted cursor-pointer select-none"
-        @click="open = !open"
+        :to="`/${node.slug}`"
+        class="flex-1 text-xs truncate py-0.5 font-semibold text-vault-muted"
       >
         {{ node.title }}
         <span class="text-vault-muted/60 font-normal">({{ node.children.length }})</span>
-      </span>
+      </NuxtLink>
       <NuxtLink v-else :to="node.path" class="flex-1 text-xs truncate py-0.5">
         {{ node.title }}
       </NuxtLink>

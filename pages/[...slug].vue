@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { marked } from 'marked'
+import { FolderIcon, FileTextIcon } from 'lucide-vue-next'
 import type { NavNode } from '~/server/api/navigation.get'
 
 const route = useRoute()
@@ -9,6 +10,21 @@ const [{ data: note, error }, { data: navTree }] = await Promise.all([
   useFetch(`/api/notes/${slug.value}`, { key: `note-${slug.value}` }),
   useFetch<NavNode[]>('/api/navigation', { key: 'navigation' }),
 ])
+
+function findNode(nodes: NavNode[], targetSlug: string): NavNode | null {
+  for (const node of nodes) {
+    if (node.slug === targetSlug) return node
+    if (node.children.length) {
+      const found = findNode(node.children, targetSlug)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+const folderNode = computed(() =>
+  !note.value ? findNode(navTree.value ?? [], slug.value) : null
+)
 
 // Flatten navigation tree into two lookup maps:
 //   titleMap: title.toLowerCase() → full slug
@@ -30,7 +46,7 @@ const wikiLinkMap = computed(() => {
   return { titleMap, suffixMap }
 })
 
-if (error.value?.statusCode === 404) {
+if (error.value?.statusCode === 404 && !findNode(navTree.value ?? [], slug.value)) {
   throw createError({ statusCode: 404, message: 'Note not found', fatal: true })
 }
 
@@ -88,25 +104,25 @@ useHead({
 </script>
 
 <template>
-  <article class="max-w-[960px] mx-auto px-12 py-10">
-    <template v-if="note">
-      <!-- Breadcrumb -->
-      <nav class="flex items-center gap-1 text-xs text-vault-muted mb-6">
-        <NuxtLink to="/" class="hover:text-vault-text">Home</NuxtLink>
-        <template v-for="(part, i) in note.slug.split('/')" :key="i">
-          <span>/</span>
-          <NuxtLink
-            :to="`/${note.slug.split('/').slice(0, i + 1).join('/')}`"
-            class="hover:text-vault-text capitalize"
-          >
-            {{ part.replace(/-/g, ' ') }}
-          </NuxtLink>
-        </template>
-      </nav>
+  <article class="max-w-[960px] mx-auto px-4 py-6 md:px-12 md:py-10">
+    <!-- Breadcrumb (shared between note and folder views) -->
+    <nav class="flex items-center gap-1 text-[10px] md:text-xs text-vault-muted mb-6 min-w-0">
+      <NuxtLink to="/" class="hover:text-vault-text shrink-0">Home</NuxtLink>
+      <template v-for="(part, i) in slug.split('/')" :key="i">
+        <span class="shrink-0">/</span>
+        <NuxtLink
+          :to="`/${slug.split('/').slice(0, i + 1).join('/')}`"
+          class="hover:text-vault-text capitalize truncate max-w-[120px] md:max-w-none"
+        >
+          {{ part.replace(/-/g, ' ') }}
+        </NuxtLink>
+      </template>
+    </nav>
 
-      <!-- Note header -->
+    <!-- Note view -->
+    <template v-if="note">
       <header class="mb-8 pb-6 border-b border-vault-border">
-        <h1 class="text-3xl font-bold text-vault-text mb-2">{{ note.title }}</h1>
+        <h1 class="text-2xl md:text-3xl font-bold text-vault-text mb-2">{{ note.title }}</h1>
         <p v-if="note.showDate !== false" class="text-xs text-vault-muted">
           Created {{ new Date(note.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }}
           &nbsp;·&nbsp;
@@ -114,13 +130,8 @@ useHead({
         </p>
       </header>
 
-      <!-- Content -->
-      <div
-        class="prose prose-vault max-w-none"
-        v-html="renderedContent"
-      />
+      <div class="prose prose-vault max-w-none" v-html="renderedContent" />
 
-      <!-- Admin edit link -->
       <div class="mt-12 pt-6 border-t border-vault-border">
         <NuxtLink
           :to="`/admin?edit=${note.slug}`"
@@ -129,6 +140,27 @@ useHead({
           Edit this note →
         </NuxtLink>
       </div>
+    </template>
+
+    <!-- Folder index view -->
+    <template v-else-if="folderNode">
+      <header class="mb-8 pb-6 border-b border-vault-border">
+        <h1 class="text-2xl md:text-3xl font-bold text-vault-text">{{ folderNode.title }}</h1>
+      </header>
+
+      <ul class="space-y-1">
+        <li v-for="child in folderNode.children" :key="child.slug">
+          <NuxtLink
+            :to="`/${child.slug}`"
+            class="flex items-center gap-3 px-3 py-2 rounded hover:bg-vault-surface/50 text-vault-text hover:text-vault-accent group"
+          >
+            <FolderIcon v-if="!child.path" :size="15" class="shrink-0 text-vault-muted group-hover:text-vault-accent" />
+            <FileTextIcon v-else :size="15" class="shrink-0 text-vault-muted group-hover:text-vault-accent" />
+            <span class="text-sm">{{ child.title }}</span>
+            <span v-if="!child.path" class="text-xs text-vault-muted/60">({{ child.children.length }})</span>
+          </NuxtLink>
+        </li>
+      </ul>
     </template>
   </article>
 </template>
@@ -141,7 +173,7 @@ useHead({
 
 /* Code block overrides */
 .prose pre {
-  @apply bg-vault-sidebar border border-vault-border;
+  @apply bg-vault-sidebar border border-vault-border overflow-x-auto;
 }
 
 .prose code:not(pre code) {
@@ -153,7 +185,10 @@ useHead({
   @apply border-l-4 border-vault-accent text-vault-muted bg-vault-surface/30 rounded-r;
 }
 
-/* Table */
+/* Table — scrollable wrapper so wide tables don't push the page */
+.prose table {
+  @apply block overflow-x-auto;
+}
 .prose table th {
   @apply bg-vault-surface text-vault-text border-vault-border;
 }

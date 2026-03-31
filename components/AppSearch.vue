@@ -32,7 +32,7 @@ function close() {
       <input
         v-model="query"
         type="text"
-        placeholder="Search notes..."
+        placeholder="Search site..."
         class="bg-transparent text-xs text-vault-text placeholder:text-vault-muted outline-none w-full"
         @focus="open = query.length > 0"
         @blur="setTimeout(close, 200)"
