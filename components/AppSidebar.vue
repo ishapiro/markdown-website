@@ -4,14 +4,21 @@ import type { NavNode } from '~/server/api/navigation.get'
 
 const emit = defineEmits<{ close: [] }>()
 const { data: nav } = await useFetch<NavNode[]>('/api/navigation', { key: 'nav' })
+const siteConfig = useSiteConfig()
 </script>
 
 <template>
   <aside class="w-[280px] shrink-0 bg-vault-sidebar border-r border-vault-border flex flex-col overflow-hidden shadow-xl md:shadow-none h-full">
     <!-- Brand -->
     <div class="px-4 py-4 border-b border-vault-border flex items-center justify-between">
-      <NuxtLink to="/" class="font-semibold text-vault-text text-sm tracking-wide hover:text-vault-accent">
-        Cogitations
+      <NuxtLink to="/" class="font-semibold text-vault-text text-sm tracking-wide hover:text-vault-accent flex items-center gap-2">
+        <img
+          v-if="siteConfig.siteLogoKey"
+          :src="`/api/images/${siteConfig.siteLogoKey}`"
+          alt="Site logo"
+          class="h-6 w-6 object-contain shrink-0"
+        />
+        {{ siteConfig.siteTitle }}
       </NuxtLink>
       <!-- Close button: mobile only -->
       <button

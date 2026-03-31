@@ -9,7 +9,7 @@ export async function computeAdminToken(password: string): Promise<string> {
     false,
     ['sign'],
   )
-  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode('cogitations-admin-session'))
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode('admin-session'))
   return Array.from(new Uint8Array(sig))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')

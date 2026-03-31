@@ -3,6 +3,7 @@ import { MenuIcon, PanelLeftIcon } from 'lucide-vue-next'
 
 const sidebarOpen = ref(false)
 const route = useRoute()
+const siteConfig = useSiteConfig()
 
 onMounted(() => {
   sidebarOpen.value = window.innerWidth >= 768
@@ -50,9 +51,15 @@ watch(() => route.path, () => {
         <!-- Brand name: visible on mobile where sidebar is hidden by default -->
         <NuxtLink
           to="/"
-          class="font-semibold text-sm text-vault-text hover:text-vault-accent md:hidden shrink-0"
+          class="font-semibold text-sm text-vault-text hover:text-vault-accent md:hidden shrink-0 flex items-center gap-2"
         >
-          Cogitations
+          <img
+            v-if="siteConfig.siteLogoKey"
+            :src="`/api/images/${siteConfig.siteLogoKey}`"
+            alt="Site logo"
+            class="h-6 w-6 object-contain shrink-0"
+          />
+          {{ siteConfig.siteTitle }}
         </NuxtLink>
 
         <!-- Search -->

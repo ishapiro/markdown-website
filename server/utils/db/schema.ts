@@ -28,3 +28,25 @@ export const noteTags = sqliteTable('note_tags', {
   noteId: integer('note_id').notNull().references(() => notes.id),
   tagId: integer('tag_id').notNull().references(() => tags.id),
 })
+
+export const siteConfig = sqliteTable('site_config', {
+  id: integer('id').primaryKey().default(1),
+  siteTitle: text('site_title').notNull().default('My Blog'),
+  siteTagline: text('site_tagline').notNull().default(''),
+  siteLogoKey: text('site_logo_key').notNull().default(''),
+  copyrightNotice: text('copyright_notice').notNull().default(''),
+  authorName: text('author_name').notNull().default(''),
+  authorEmail: text('author_email').notNull().default(''),
+  twitterUrl: text('twitter_url').notNull().default(''),
+  githubUrl: text('github_url').notNull().default(''),
+  linkedinUrl: text('linkedin_url').notNull().default(''),
+  mastodonUrl: text('mastodon_url').notNull().default(''),
+  ogImageUrl: text('og_image_url').notNull().default(''),
+  faviconUrl: text('favicon_url').notNull().default(''),
+  robotsMeta: text('robots_meta').notNull().default('index,follow'),
+  analyticsId: text('analytics_id').notNull().default(''),
+  unsplashAttributionSource: text('unsplash_attribution_source').notNull().default(''),
+})
+
+export type SiteConfig = typeof siteConfig.$inferSelect
+export type SiteConfigUpdate = Omit<typeof siteConfig.$inferInsert, 'id'>

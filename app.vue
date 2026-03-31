@@ -1,3 +1,11 @@
+<script setup lang="ts">
+import type { PublicSiteConfig } from '~/composables/useSiteConfig'
+
+const siteConfig = useSiteConfig()
+const { data } = await useFetch<PublicSiteConfig>('/api/config', { key: 'site-config' })
+if (data.value) siteConfig.value = data.value
+</script>
+
 <template>
   <NuxtLayout>
     <NuxtPage />

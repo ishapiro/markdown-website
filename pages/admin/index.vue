@@ -25,6 +25,86 @@ const reindexing = ref(false)
 const reindexStatus = ref<'idle' | 'done' | 'error'>('idle')
 const reindexMsg = ref('')
 
+// ── Site configuration ───────────────────────────────────────────────────────
+interface AdminSiteConfig {
+  siteTitle: string; siteTagline: string; siteLogoKey: string
+  copyrightNotice: string; authorName: string; authorEmail: string
+  twitterUrl: string; githubUrl: string; linkedinUrl: string; mastodonUrl: string
+  ogImageUrl: string; faviconUrl: string; robotsMeta: string
+  analyticsId: string; unsplashAttributionSource: string
+}
+const showConfigPanel = ref(false)
+const configForm = ref<AdminSiteConfig | null>(null)
+const configSaving = ref(false)
+const configSaveStatus = ref<'idle' | 'saved' | 'error'>('idle')
+const configSaveError = ref('')
+const logoUploading = ref(false)
+const logoUploadStatus = ref('')
+const logoPreviewUrl = ref('')
+
+const { data: fullConfig, refresh: refreshConfig } = await useFetch<AdminSiteConfig>('/api/admin/config', { key: 'admin-config' })
+watchEffect(() => {
+  if (fullConfig.value && !configForm.value) {
+    configForm.value = { ...fullConfig.value }
+    if (fullConfig.value.siteLogoKey) {
+      logoPreviewUrl.value = `/api/images/${fullConfig.value.siteLogoKey}`
+    }
+  }
+})
+
+async function saveConfig() {
+  if (!configForm.value) return
+  configSaving.value = true
+  configSaveStatus.value = 'idle'
+  configSaveError.value = ''
+  try {
+    await $fetch('/api/admin/config', { method: 'PUT', body: configForm.value })
+    configSaveStatus.value = 'saved'
+    const fresh = await $fetch<AdminSiteConfig>('/api/config')
+    const sc = useSiteConfig()
+    sc.value = {
+      siteTitle: fresh.siteTitle, siteTagline: fresh.siteTagline, siteLogoKey: fresh.siteLogoKey,
+      copyrightNotice: fresh.copyrightNotice, authorName: fresh.authorName,
+      twitterUrl: fresh.twitterUrl, githubUrl: fresh.githubUrl, linkedinUrl: fresh.linkedinUrl,
+      mastodonUrl: fresh.mastodonUrl, ogImageUrl: fresh.ogImageUrl, faviconUrl: fresh.faviconUrl,
+      robotsMeta: fresh.robotsMeta,
+    }
+    setTimeout(() => { configSaveStatus.value = 'idle' }, 3000)
+  } catch (e: unknown) {
+    configSaveStatus.value = 'error'
+    configSaveError.value = (e as { data?: { message?: string } })?.data?.message ?? 'Save failed'
+  } finally {
+    configSaving.value = false
+  }
+}
+
+async function handleLogoFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  if (!file || !configForm.value) return
+  input.value = ''
+  logoUploadStatus.value = 'Uploading…'
+  logoUploading.value = true
+  try {
+    const form = new FormData()
+    form.append('file', file)
+    const result = await $fetch<{ url: string; key: string }>('/api/admin/upload', { method: 'POST', body: form })
+    configForm.value.siteLogoKey = result.key
+    logoPreviewUrl.value = result.url
+    logoUploadStatus.value = ''
+  } catch {
+    logoUploadStatus.value = 'Upload failed. Please try again.'
+  } finally {
+    logoUploading.value = false
+  }
+}
+
+function removeLogo() {
+  if (!configForm.value) return
+  configForm.value.siteLogoKey = ''
+  logoPreviewUrl.value = ''
+}
+
 async function reindex() {
   reindexing.value = true
   reindexStatus.value = 'idle'
@@ -505,8 +585,9 @@ async function saveUnsplashImage() {
         altDescription: unsplashAlt.value,
       },
     })
-    const photoUrl = `${unsplashSelected.value.photographerUrl}?utm_source=cogitations&utm_medium=referral`
-    const unsplashUrl = 'https://unsplash.com?utm_source=cogitations&utm_medium=referral'
+    const utmSource = configForm.value?.unsplashAttributionSource || 'blog'
+    const photoUrl = `${unsplashSelected.value.photographerUrl}?utm_source=${utmSource}&utm_medium=referral`
+    const unsplashUrl = `https://unsplash.com?utm_source=${utmSource}&utm_medium=referral`
     const attribution = `*Photo by [${unsplashSelected.value.photographerName}](${photoUrl}) on [Unsplash](${unsplashUrl})*`
     const token = `${buildImageMarkdown(result.url, unsplashAlt.value)}\n${attribution}`
 
@@ -890,8 +971,8 @@ watch(showImagePanel, (open) => {
               <img :src="unsplashSelected.thumbUrl" alt="" class="h-16 w-16 shrink-0 rounded object-cover" />
               <div class="flex-1 space-y-1.5">
                 <p class="text-[10px] text-vault-muted">
-                  By <a :href="`${unsplashSelected.photographerUrl}?utm_source=cogitations&utm_medium=referral`" target="_blank" class="underline">{{ unsplashSelected.photographerName }}</a>
-                  on <a href="https://unsplash.com?utm_source=cogitations&utm_medium=referral" target="_blank" class="underline">Unsplash</a>
+                  By <a :href="`${unsplashSelected.photographerUrl}?utm_source=${configForm?.unsplashAttributionSource || 'blog'}&utm_medium=referral`" target="_blank" class="underline">{{ unsplashSelected.photographerName }}</a>
+                  on <a :href="`https://unsplash.com?utm_source=${configForm?.unsplashAttributionSource || 'blog'}&utm_medium=referral`" target="_blank" class="underline">Unsplash</a>
                 </p>
                 <input
                   v-model="unsplashAlt"
@@ -1069,6 +1150,12 @@ watch(showImagePanel, (open) => {
           >
             {{ reindexing ? 'Reindexing…' : 'Reindex Search' }}
           </button>
+          <button
+            class="text-xs px-3 py-1.5 rounded border border-vault-border text-vault-muted hover:bg-vault-surface transition-colors"
+            @click="showConfigPanel = true"
+          >
+            Site Config
+          </button>
           <span v-if="saveStatus === 'saved'" class="text-xs text-green-600">✓ Saved</span>
           <span v-if="saveStatus === 'error'" class="text-xs text-red-500">✗ {{ errorMsg }}</span>
           <button
@@ -1086,4 +1173,172 @@ watch(showImagePanel, (open) => {
 
     </div>
   </div>
+
+  <!-- ── Site Configuration Panel ─────────────────────────────────────────── -->
+  <Teleport to="body">
+    <div
+      v-if="showConfigPanel"
+      class="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto py-8 px-4"
+      @click.self="showConfigPanel = false"
+    >
+      <div class="w-full max-w-2xl bg-vault-bg border border-vault-border rounded-lg shadow-2xl">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-5 py-3.5 border-b border-vault-border">
+          <h2 class="text-sm font-semibold text-vault-text">Site Configuration</h2>
+          <button class="text-vault-muted hover:text-vault-text p-1" @click="showConfigPanel = false">✕</button>
+        </div>
+
+        <form v-if="configForm" class="p-5 space-y-5" @submit.prevent="saveConfig">
+
+          <!-- Basic Info -->
+          <fieldset class="space-y-3">
+            <legend class="text-[10px] font-semibold uppercase tracking-wider text-vault-faint mb-2">Basic Info</legend>
+
+            <!-- Logo upload -->
+            <div class="flex items-center gap-3">
+              <div class="shrink-0">
+                <img
+                  v-if="logoPreviewUrl"
+                  :src="logoPreviewUrl"
+                  alt="Site logo"
+                  class="h-12 w-12 object-contain rounded border border-vault-border bg-vault-surface"
+                />
+                <div v-else class="h-12 w-12 rounded border border-dashed border-vault-border bg-vault-surface flex items-center justify-center text-vault-faint text-[10px] text-center leading-tight px-1">
+                  No logo
+                </div>
+              </div>
+              <div class="flex flex-col gap-1.5">
+                <label class="text-xs text-vault-faint font-medium">Site Logo</label>
+                <div class="flex items-center gap-2">
+                  <label class="cursor-pointer text-xs px-3 py-1 rounded border border-vault-border text-vault-muted hover:bg-vault-surface transition-colors">
+                    {{ logoUploading ? 'Uploading…' : 'Upload image' }}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml"
+                      class="hidden"
+                      :disabled="logoUploading"
+                      @change="handleLogoFile"
+                    />
+                  </label>
+                  <button
+                    v-if="configForm.siteLogoKey"
+                    type="button"
+                    class="text-xs px-2 py-1 rounded border border-vault-border text-vault-muted hover:bg-vault-surface transition-colors"
+                    @click="removeLogo"
+                  >Remove</button>
+                </div>
+                <p v-if="logoUploadStatus" class="text-[10px] text-red-500">{{ logoUploadStatus }}</p>
+                <p class="text-[10px] text-vault-faint">Displayed to the left of the site title. jpeg, png, gif, webp, svg accepted.</p>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <label class="flex flex-col gap-1 text-xs col-span-2">
+                <span class="text-vault-faint font-medium">Website Title *</span>
+                <input v-model="configForm.siteTitle" type="text" required class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" />
+              </label>
+              <label class="flex flex-col gap-1 text-xs col-span-2">
+                <span class="text-vault-faint font-medium">Tagline / Description</span>
+                <input v-model="configForm.siteTagline" type="text" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" placeholder="A personal knowledge base" />
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Author Name</span>
+                <input v-model="configForm.authorName" type="text" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" />
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Author Email</span>
+                <input v-model="configForm.authorEmail" type="email" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" />
+              </label>
+              <label class="flex flex-col gap-1 text-xs col-span-2">
+                <span class="text-vault-faint font-medium">Copyright Notice</span>
+                <input v-model="configForm.copyrightNotice" type="text" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" placeholder="© 2025 Your Name. All rights reserved." />
+              </label>
+            </div>
+          </fieldset>
+
+          <!-- Social Links -->
+          <fieldset class="space-y-3">
+            <legend class="text-[10px] font-semibold uppercase tracking-wider text-vault-faint mb-2">Social Links</legend>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Twitter / X URL</span>
+                <input v-model="configForm.twitterUrl" type="url" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" placeholder="https://twitter.com/yourhandle" />
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">GitHub URL</span>
+                <input v-model="configForm.githubUrl" type="url" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" placeholder="https://github.com/yourhandle" />
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">LinkedIn URL</span>
+                <input v-model="configForm.linkedinUrl" type="url" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" />
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Mastodon URL</span>
+                <input v-model="configForm.mastodonUrl" type="url" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" />
+              </label>
+            </div>
+          </fieldset>
+
+          <!-- SEO & Meta -->
+          <fieldset class="space-y-3">
+            <legend class="text-[10px] font-semibold uppercase tracking-wider text-vault-faint mb-2">SEO & Meta</legend>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Default og:image URL</span>
+                <input v-model="configForm.ogImageUrl" type="url" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" />
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Favicon URL</span>
+                <input v-model="configForm.faviconUrl" type="url" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" />
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Robots Meta</span>
+                <select v-model="configForm.robotsMeta" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full">
+                  <option value="index,follow">index, follow</option>
+                  <option value="noindex,nofollow">noindex, nofollow</option>
+                  <option value="noindex,follow">noindex, follow</option>
+                  <option value="index,nofollow">index, nofollow</option>
+                </select>
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Analytics ID</span>
+                <input v-model="configForm.analyticsId" type="text" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" placeholder="Plausible domain or GA ID" />
+              </label>
+            </div>
+          </fieldset>
+
+          <!-- Integrations -->
+          <fieldset>
+            <legend class="text-[10px] font-semibold uppercase tracking-wider text-vault-faint mb-2">Integrations</legend>
+            <label class="flex flex-col gap-1 text-xs">
+              <span class="text-vault-faint font-medium">Unsplash Attribution Source</span>
+              <input v-model="configForm.unsplashAttributionSource" type="text" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" placeholder="your-site-slug" />
+              <span class="text-[10px] text-vault-faint">Used as utm_source= when attributing Unsplash photos. Use a short slug with no spaces.</span>
+            </label>
+          </fieldset>
+
+          <!-- Actions -->
+          <div class="flex items-center gap-3 pt-1 border-t border-vault-border">
+            <button
+              type="submit"
+              class="text-xs px-5 py-1.5 rounded font-semibold transition-colors shadow-sm bg-vault-accent text-white hover:bg-vault-accent-hover disabled:opacity-60"
+              :disabled="configSaving"
+            >
+              {{ configSaving ? 'Saving…' : 'Save Configuration' }}
+            </button>
+            <span v-if="configSaveStatus === 'saved'" class="text-xs text-green-600">✓ Saved</span>
+            <span v-if="configSaveStatus === 'error'" class="text-xs text-red-500">{{ configSaveError }}</span>
+            <button
+              type="button"
+              class="ml-auto text-xs px-3 py-1.5 rounded border border-vault-border text-vault-muted hover:bg-vault-surface transition-colors"
+              @click="showConfigPanel = false"
+            >
+              Close
+            </button>
+          </div>
+        </form>
+        <p v-else class="p-5 text-xs text-vault-muted">Loading configuration…</p>
+      </div>
+    </div>
+  </Teleport>
 </template>

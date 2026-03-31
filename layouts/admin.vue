@@ -5,7 +5,7 @@
         <ArrowLeftIcon :size="14" />
         <span>Blog</span>
       </NuxtLink>
-      <span class="text-vault-accent font-semibold text-sm">Cogitations Admin</span>
+      <span class="text-vault-accent font-semibold text-sm">{{ siteConfig.siteTitle }} Admin</span>
       <NuxtLink to="/home" class="ml-auto text-xs text-vault-muted hover:text-vault-text mr-3">Home</NuxtLink>
       <button
         class="text-xs text-vault-muted hover:text-vault-text"
@@ -18,6 +18,8 @@
 
 <script setup lang="ts">
 import { ArrowLeftIcon } from 'lucide-vue-next'
+
+const siteConfig = useSiteConfig()
 
 async function logout() {
   await $fetch('/api/admin/logout', { method: 'POST' }).catch(() => {})

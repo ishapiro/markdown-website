@@ -9,10 +9,7 @@ export default defineNuxtConfig({
     adminPassword: '',   // set via NUXT_ADMIN_PASSWORD in .dev.vars / Cloudflare secret
     systemGeminiKey: '',     // set via NUXT_SYSTEM_GEMINI_KEY in .dev.vars / Cloudflare secret
     unsplashAccessKey: '',   // set via NUXT_UNSPLASH_ACCESS_KEY in .dev.vars / Cloudflare secret
-    public: {
-      siteName: 'Cogitations',
-      siteDescription: 'A personal knowledge base',
-    },
+    public: {},
   },
 
   compatibilityDate: '2024-09-19',
