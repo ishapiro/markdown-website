@@ -1,12 +1,14 @@
 <template>
   <div class="min-h-screen bg-vault-bg text-vault-text">
     <header class="h-12 flex items-center px-6 border-b border-vault-border bg-vault-sidebar">
-      <NuxtLink to="/" class="text-vault-muted hover:text-vault-text mr-4">
-        <ArrowLeftIcon :size="16" />
+      <NuxtLink to="/home" class="flex items-center gap-1 text-xs text-vault-muted hover:text-vault-text mr-4 shrink-0">
+        <ArrowLeftIcon :size="14" />
+        <span>Blog</span>
       </NuxtLink>
       <span class="text-vault-accent font-semibold text-sm">Cogitations Admin</span>
+      <NuxtLink to="/home" class="ml-auto text-xs text-vault-muted hover:text-vault-text mr-3">Home</NuxtLink>
       <button
-        class="ml-auto text-xs text-vault-muted hover:text-vault-text"
+        class="text-xs text-vault-muted hover:text-vault-text"
         @click="logout"
       >Sign out</button>
     </header>

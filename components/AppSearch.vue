@@ -3,7 +3,7 @@ import { SearchIcon } from 'lucide-vue-next'
 
 const query = ref('')
 const open = ref(false)
-const results = ref<{ title: string; slug: string; content_preview: string }[]>([])
+const results = ref<{ title: string; slug: string; snippet: string }[]>([])
 let timer: ReturnType<typeof setTimeout>
 
 function debounce(fn: () => void, delay: number) {
@@ -51,7 +51,7 @@ function close() {
         @click="close"
       >
         <p class="text-xs font-medium text-vault-text">{{ r.title }}</p>
-        <p class="text-xs text-vault-muted truncate mt-0.5">{{ r.content_preview }}</p>
+        <p class="text-xs text-vault-muted truncate mt-0.5">{{ r.snippet }}</p>
       </NuxtLink>
     </div>
 

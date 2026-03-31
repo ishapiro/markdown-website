@@ -26,7 +26,10 @@ export default defineEventHandler(async (event) => {
 
   const { title, slug, parent_path, content, is_published, show_date, created_at, sort_order } = parsed.data
   const r2Key = `notes/${slug}.md`
-  const contentPreview = content.replace(/#+\s/g, '').replace(/\n/g, ' ').slice(0, 200)
+  const cleaned = content.replace(/#+\s/g, '').replace(/\n/g, ' ')
+  const contentPreview = cleaned.length > 21000
+    ? cleaned.slice(0, 20000) + ' ' + cleaned.slice(-1000)
+    : cleaned.slice(0, 20000)
 
   const r2 = useR2(event)
   await r2.put(r2Key, content, { httpMetadata: { contentType: 'text/markdown' } })

@@ -98,6 +98,14 @@ const renderedContent = computed(() => {
   return marked.parse(withWikiLinks) as string
 })
 
+const readingStats = computed(() => {
+  if (!note.value?.content) return null
+  const text = note.value.content.replace(/[#*`\[\]>_~]/g, '').trim()
+  const wordCount = text.split(/\s+/).filter(Boolean).length
+  const minutes = Math.max(1, Math.round(wordCount / 200))
+  return { charCount: text.length, minutes }
+})
+
 useHead({
   title: note.value?.title ?? 'Note',
 })
@@ -123,11 +131,19 @@ useHead({
     <template v-if="note">
       <header class="mb-8 pb-6 border-b border-vault-border">
         <h1 class="text-2xl md:text-3xl font-bold text-vault-text mb-2">{{ note.title }}</h1>
-        <p v-if="note.showDate !== false" class="text-xs text-vault-muted">
-          Created {{ new Date(note.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }}
-          &nbsp;·&nbsp;
-          Last updated {{ new Date(note.updatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }}
-        </p>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-vault-muted">
+          <template v-if="note.showDate !== false">
+            <span>Created {{ new Date(note.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }}</span>
+            <span class="text-vault-border">·</span>
+            <span>Updated {{ new Date(note.updatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }}</span>
+            <span class="text-vault-border">·</span>
+          </template>
+          <template v-if="readingStats">
+            <span>{{ readingStats.charCount.toLocaleString() }} characters</span>
+            <span class="text-vault-border">·</span>
+            <span>{{ readingStats.minutes }} min read</span>
+          </template>
+        </div>
       </header>
 
       <div class="prose prose-vault max-w-none" v-html="renderedContent" />

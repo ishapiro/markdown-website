@@ -21,6 +21,24 @@ const saving = ref(false)
 const saveStatus = ref<'idle' | 'saved' | 'error'>('idle')
 const errorMsg = ref('')
 const sidebarRefresh = ref(0)
+const reindexing = ref(false)
+const reindexStatus = ref<'idle' | 'done' | 'error'>('idle')
+const reindexMsg = ref('')
+
+async function reindex() {
+  reindexing.value = true
+  reindexStatus.value = 'idle'
+  try {
+    const result = await $fetch<{ reindexed: number }>('/api/admin/reindex', { method: 'POST' })
+    reindexMsg.value = `✓ Reindexed ${result.reindexed} notes`
+    reindexStatus.value = 'done'
+  } catch {
+    reindexMsg.value = 'Reindex failed'
+    reindexStatus.value = 'error'
+  } finally {
+    reindexing.value = false
+  }
+}
 
 const isNewNote = computed(() => !editSlug.value)
 
@@ -1042,6 +1060,15 @@ watch(showImagePanel, (open) => {
           <template v-else>/{{ editSlug }}</template>
         </span>
         <div class="flex items-center gap-2 shrink-0">
+          <span v-if="reindexStatus === 'done'" class="text-xs text-green-600">{{ reindexMsg }}</span>
+          <span v-if="reindexStatus === 'error'" class="text-xs text-red-500">{{ reindexMsg }}</span>
+          <button
+            class="text-xs px-3 py-1.5 rounded border border-vault-border text-vault-muted hover:bg-vault-surface transition-colors disabled:opacity-50"
+            :disabled="reindexing"
+            @click="reindex"
+          >
+            {{ reindexing ? 'Reindexing…' : 'Reindex Search' }}
+          </button>
           <span v-if="saveStatus === 'saved'" class="text-xs text-green-600">✓ Saved</span>
           <span v-if="saveStatus === 'error'" class="text-xs text-red-500">✗ {{ errorMsg }}</span>
           <button
