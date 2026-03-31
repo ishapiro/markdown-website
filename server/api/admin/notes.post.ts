@@ -3,6 +3,7 @@
 import { eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
 import { notes } from '~/server/utils/db/schema'
+import { useR2 } from '~/server/utils/r2'
 
 const NoteSchema = z.object({
   title: z.string().min(1).max(255),
@@ -27,11 +28,8 @@ export default defineEventHandler(async (event) => {
   const r2Key = `notes/${slug}.md`
   const contentPreview = content.replace(/#+\s/g, '').replace(/\n/g, ' ').slice(0, 200)
 
-  // Upload full content to blob storage (R2 in production, local in dev)
-  await blob.put(r2Key, content, {
-    contentType: 'text/markdown',
-    addRandomSuffix: false,
-  })
+  const r2 = useR2(event)
+  await r2.put(r2Key, content, { httpMetadata: { contentType: 'text/markdown' } })
 
   const db = useDb(event)
   let existing

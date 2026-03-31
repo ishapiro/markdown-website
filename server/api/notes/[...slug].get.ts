@@ -1,5 +1,6 @@
 import { and, eq } from 'drizzle-orm'
 import { notes } from '~/server/utils/db/schema'
+import { useR2 } from '~/server/utils/r2'
 
 export default defineEventHandler(async (event) => {
   const slugParts = getRouterParam(event, 'slug') as string
@@ -16,7 +17,8 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, message: 'Note not found' })
   }
 
-  const content = await blob.get(note.r2Key)
+  const r2 = useR2(event)
+  const content = await r2.get(note.r2Key)
   if (!content) {
     throw createError({ statusCode: 404, message: 'Note content not found in storage' })
   }

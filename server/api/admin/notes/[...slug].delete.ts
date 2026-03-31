@@ -1,5 +1,6 @@
 import { eq, sql } from 'drizzle-orm'
 import { notes } from '~/server/utils/db/schema'
+import { useR2 } from '~/server/utils/r2'
 
 // Soft-delete (unpublish) or hard-delete a note.
 // Query param: ?hard=true for permanent deletion.
@@ -21,7 +22,8 @@ export default defineEventHandler(async (event) => {
   }
 
   if (hard) {
-    await blob.delete(note.r2Key)
+    const r2 = useR2(event)
+    await r2.delete(note.r2Key)
     await db.delete(notes).where(eq(notes.id, note.id))
     return { ok: true, deleted: true }
   }

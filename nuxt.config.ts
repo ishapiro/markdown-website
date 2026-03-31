@@ -1,9 +1,5 @@
 export default defineNuxtConfig({
-  modules: ['@nuxthub/core', '@nuxtjs/tailwindcss'],
-
-  hub: {
-    blob: true,
-  },
+  modules: ['@nuxtjs/tailwindcss'],
 
   routeRules: {
     '/admin/**': { ssr: false },
@@ -19,9 +15,14 @@ export default defineNuxtConfig({
     },
   },
 
-  compatibilityDate: '2024-07-30',
+  compatibilityDate: '2024-09-19',
 
   nitro: {
+    preset: 'cloudflare_module',
+    cloudflare: {
+      deployConfig: false, // use root wrangler.toml so local D1 lives in .wrangler/ and persists across builds
+      nodeCompat: true,
+    },
     rollupConfig: {
       onwarn(warning, warn) {
         // Suppress false-positive warnings from third-party packages

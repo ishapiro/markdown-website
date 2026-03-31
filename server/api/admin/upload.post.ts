@@ -1,5 +1,7 @@
 // Image upload for the admin editor. Returns the URL for insertion into Markdown.
 
+import { useR2 } from '~/server/utils/r2'
+
 export default defineEventHandler(async (event) => {
   const form = await readFormData(event)
   const file = form.get('file') as File | null
@@ -16,10 +18,8 @@ export default defineEventHandler(async (event) => {
   const ext = file.name.split('.').pop()
   const key = `images/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 
-  await blob.put(key, file, {
-    contentType: file.type,
-    addRandomSuffix: false,
-  })
+  const r2 = useR2(event)
+  await r2.put(key, await file.arrayBuffer(), { httpMetadata: { contentType: file.type } })
 
   return { ok: true, key, url: `/api/images/${key}` }
 })

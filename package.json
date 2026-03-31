@@ -3,10 +3,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "NITRO_PRESET=cloudflare-pages nuxt build && wrangler pages dev --port 3001",
-    "build": "NITRO_PRESET=cloudflare-pages nuxt build",
-    "preview": "wrangler pages dev --port 3001",
-    "deploy": "nuxthub deploy",
+    "dev": "nuxt build && wrangler dev --config wrangler.toml --port 3001",
+    "build": "nuxt build",
+    "preview": "wrangler dev --config wrangler.toml --port 3001",
+    "deploy": "nuxt build && wrangler deploy --config wrangler.toml",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node run-migrations.mjs",
     "db:migrate:remote": "npx wrangler d1 execute cogitations-db --remote --file=drizzle/0000_blushing_slapstick.sql && npx wrangler d1 execute cogitations-db --remote --file=drizzle/0001_add_sort_order.sql && npx wrangler d1 execute cogitations-db --remote --file=drizzle/0002_add_show_date.sql",
@@ -20,7 +20,6 @@
     "@codemirror/commands": "^6.10.3",
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.40.0",
-    "@nuxthub/core": "latest",
     "drizzle-orm": "^0.45.2",
     "lucide-vue-next": "latest",
     "marked": "^12.0.0",
@@ -36,6 +35,6 @@
     "drizzle-kit": "^0.31.10",
     "globby": "^14.0.0",
     "typescript": "latest",
-    "wrangler": "latest"
+    "wrangler": "^4.79.0"
   }
 }

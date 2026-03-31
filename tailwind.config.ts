@@ -69,9 +69,9 @@ export default {
               fontWeight: '600',
             },
             h1: { fontSize: '2.6em', borderBottom: `1px solid ${theme('colors.vault.border')}`, paddingBottom: '0.2em', marginBottom: '0.4em' },
-            h2: { fontSize: '1.8em' },
+            h2: { fontSize: '1.8em', marginBottom: '0.2em' },
             h3: { fontSize: '1.4em' },
-            p: { marginTop: '0.3em', marginBottom: '0.3em' },
+            p: { marginTop: '0.75em', marginBottom: '0.75em' },
             'code:not(pre code)': {
               background: theme('colors.vault.sidebar'),
               color: theme('colors.vault.text'),

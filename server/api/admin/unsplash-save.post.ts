@@ -1,5 +1,7 @@
-// Download an Unsplash photo, save it to R2 blob storage, and return a local URL.
+// Download an Unsplash photo, save it to R2, and return a local URL.
 // Triggers the required Unsplash download event for API compliance.
+
+import { useR2, mimeToExt } from '~/server/utils/r2'
 
 export default defineEventHandler(async (event) => {
   const body = await readBody(event) as { regularUrl: string; downloadLocation: string; altDescription: string }
@@ -22,13 +24,12 @@ export default defineEventHandler(async (event) => {
   if (!imgRes.ok) throw createError({ statusCode: 500, message: 'Failed to download Unsplash image' })
 
   const contentType = imgRes.headers.get('content-type') ?? 'image/jpeg'
-  const ext = contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg'
+  const mimeType = contentType.split(';')[0].trim()
+  const ext = mimeToExt(mimeType)
   const key = `images/${Date.now()}-unsplash.${ext}`
 
-  await blob.put(key, imgRes.body!, {
-    contentType,
-    addRandomSuffix: false,
-  })
+  const r2 = useR2(event)
+  await r2.put(key, await imgRes.arrayBuffer(), { httpMetadata: { contentType: mimeType } })
 
   return { url: `/api/images/${key}` }
 })
