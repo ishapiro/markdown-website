@@ -717,9 +717,34 @@ watch(showImagePanel, (open) => {
             Delete
           </button>
 
-          <!-- Save button (primary) -->
+          <div class="w-px h-4 bg-vault-border shrink-0" />
+
+          <!-- Reindex Search -->
           <button
-            class="text-xs px-5 py-1.5 rounded-md font-semibold transition-colors shadow-sm"
+            class="text-xs px-3 py-1.5 rounded border border-vault-border text-vault-muted hover:bg-vault-surface transition-colors disabled:opacity-50 shrink-0"
+            :disabled="reindexing"
+            @click="reindex"
+          >
+            {{ reindexing ? 'Reindexing…' : 'Reindex' }}
+          </button>
+          <span v-if="reindexStatus === 'done'" class="text-xs text-green-600 shrink-0">{{ reindexMsg }}</span>
+          <span v-if="reindexStatus === 'error'" class="text-xs text-red-500 shrink-0">{{ reindexMsg }}</span>
+
+          <!-- Site Config -->
+          <button
+            class="text-xs px-3 py-1.5 rounded border border-vault-border text-vault-muted hover:bg-vault-surface transition-colors shrink-0"
+            @click="showConfigPanel = true"
+          >
+            Site Config
+          </button>
+
+          <div class="w-px h-4 bg-vault-border shrink-0" />
+
+          <!-- Save status + button -->
+          <span v-if="saveStatus === 'saved'" class="text-xs text-green-600 shrink-0">✓ Saved</span>
+          <span v-if="saveStatus === 'error'" class="text-xs text-red-500 shrink-0">✗ {{ errorMsg }}</span>
+          <button
+            class="text-xs px-5 py-1.5 rounded-md font-semibold transition-colors shadow-sm shrink-0"
             :class="saving
               ? 'bg-vault-muted text-white cursor-not-allowed opacity-60'
               : 'bg-vault-accent text-white hover:bg-vault-accent-hover'"
@@ -1131,43 +1156,6 @@ watch(showImagePanel, (open) => {
               </p>
             </div>
           </div>
-        </div>
-      </div>
-
-      <!-- ── Bottom save bar ───────────────────────────────────────────────── -->
-      <div class="shrink-0 flex items-center justify-between gap-3 px-4 py-2 border-t border-vault-border bg-vault-sidebar/50">
-        <span class="text-xs text-vault-faint truncate">
-          <template v-if="isNewNote">New note — not yet saved</template>
-          <template v-else>/{{ editSlug }}</template>
-        </span>
-        <div class="flex items-center gap-2 shrink-0">
-          <span v-if="reindexStatus === 'done'" class="text-xs text-green-600">{{ reindexMsg }}</span>
-          <span v-if="reindexStatus === 'error'" class="text-xs text-red-500">{{ reindexMsg }}</span>
-          <button
-            class="text-xs px-3 py-1.5 rounded border border-vault-border text-vault-muted hover:bg-vault-surface transition-colors disabled:opacity-50"
-            :disabled="reindexing"
-            @click="reindex"
-          >
-            {{ reindexing ? 'Reindexing…' : 'Reindex Search' }}
-          </button>
-          <button
-            class="text-xs px-3 py-1.5 rounded border border-vault-border text-vault-muted hover:bg-vault-surface transition-colors"
-            @click="showConfigPanel = true"
-          >
-            Site Config
-          </button>
-          <span v-if="saveStatus === 'saved'" class="text-xs text-green-600">✓ Saved</span>
-          <span v-if="saveStatus === 'error'" class="text-xs text-red-500">✗ {{ errorMsg }}</span>
-          <button
-            class="text-xs px-4 py-1.5 rounded font-semibold transition-colors"
-            :class="saving
-              ? 'bg-vault-muted text-white cursor-not-allowed opacity-60'
-              : 'bg-vault-accent text-white hover:bg-vault-accent-hover'"
-            :disabled="saving"
-            @click="save"
-          >
-            {{ saving ? 'Saving…' : 'Save' }}
-          </button>
         </div>
       </div>
 
