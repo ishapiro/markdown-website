@@ -1,6 +1,10 @@
 name = "cogitations-nuxt"
+main = ".output/server/index.mjs"
 compatibility_date = "2024-07-30"
-pages_build_output_dir = ".output/public"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = ".output/public/"
 
 [[d1_databases]]
 binding = "DB"

@@ -1,6 +1,8 @@
 // Create or update a note. Protected by the auth middleware.
 
+import { eq, sql } from 'drizzle-orm'
 import { z } from 'zod'
+import { notes } from '~/server/utils/db/schema'
 
 const NoteSchema = z.object({
   title: z.string().min(1).max(255),
@@ -8,6 +10,7 @@ const NoteSchema = z.object({
   parent_path: z.string().default('/'),
   content: z.string(),
   is_published: z.boolean().default(true),
+  created_at: z.string().optional(), // YYYY-MM-DD; if omitted, DB default is preserved on update
 })
 
 export default defineEventHandler(async (event) => {
@@ -18,38 +21,48 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: parsed.error.message })
   }
 
-  const { title, slug, parent_path, content, is_published } = parsed.data
+  const { title, slug, parent_path, content, is_published, created_at } = parsed.data
   const r2Key = `notes/${slug}.md`
   const contentPreview = content.replace(/#+\s/g, '').replace(/\n/g, ' ').slice(0, 200)
 
-  const db = useDatabase()
-
-  // Upload full content to blob storage (R2 in production, fs in dev)
+  // Upload full content to blob storage (R2 in production, local in dev)
   await blob.put(r2Key, content, {
     contentType: 'text/markdown',
     addRandomSuffix: false,
   })
 
-  // Check if note exists
-  const existing = await db.sql<{ id: number }>`SELECT id FROM notes WHERE slug = ${slug}`
-  const existingRow = existing.rows[0]
+  const db = useDb(event)
+  const existing = await db
+    .select({ id: notes.id })
+    .from(notes)
+    .where(eq(notes.slug, slug))
+    .get()
 
-  if (existingRow) {
-    await db.sql`
-      UPDATE notes
-      SET title = ${title},
-          parent_path = ${parent_path},
-          content_preview = ${contentPreview},
-          r2_key = ${r2Key},
-          is_published = ${is_published ? 1 : 0},
-          updated_at = CURRENT_TIMESTAMP
-      WHERE slug = ${slug}
-    `
+  if (existing) {
+    await db
+      .update(notes)
+      .set({
+        title,
+        parentPath: parent_path,
+        contentPreview,
+        r2Key,
+        isPublished: is_published,
+        updatedAt: sql`CURRENT_TIMESTAMP`,
+        ...(created_at ? { createdAt: created_at } : {}),
+      })
+      .where(eq(notes.slug, slug))
   } else {
-    await db.sql`
-      INSERT INTO notes (title, slug, parent_path, content_preview, r2_key, is_published)
-      VALUES (${title}, ${slug}, ${parent_path}, ${contentPreview}, ${r2Key}, ${is_published ? 1 : 0})
-    `
+    await db
+      .insert(notes)
+      .values({
+        title,
+        slug,
+        parentPath: parent_path,
+        contentPreview,
+        r2Key,
+        isPublished: is_published,
+        ...(created_at ? { createdAt: created_at } : {}),
+      })
   }
 
   return { ok: true, slug }

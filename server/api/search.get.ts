@@ -1,5 +1,3 @@
-// Full-text search over the notes_search FTS5 virtual table.
-
 interface SearchRow {
   title: string
   slug: string
@@ -13,16 +11,15 @@ export default defineEventHandler(async (event) => {
     return []
   }
 
-  const db = useDatabase()
+  // FTS5 virtual tables are not supported by Drizzle ORM, so we use the raw D1 client.
+  const d1 = event.context.cloudflare?.env?.DB
+  if (!d1) throw createError({ statusCode: 500, message: 'D1 database binding not available' })
+
   const term = `${query.trim()}*`
+  const { results } = await d1
+    .prepare('SELECT title, slug, content_preview FROM notes_search WHERE notes_search MATCH ? ORDER BY rank LIMIT 20')
+    .bind(term)
+    .all<SearchRow>()
 
-  const result = await db.sql<SearchRow>`
-    SELECT title, slug, content_preview
-    FROM notes_search
-    WHERE notes_search MATCH ${term}
-    ORDER BY rank
-    LIMIT 20
-  `
-
-  return result.rows
+  return results
 })

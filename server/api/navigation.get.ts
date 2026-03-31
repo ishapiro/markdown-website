@@ -1,58 +1,59 @@
-// Returns the full navigation tree for the sidebar.
-
-interface NoteRow {
-  title: string
-  slug: string
-  parent_path: string
-}
+import { asc, eq } from 'drizzle-orm'
+import { notes } from '~/server/utils/db/schema'
 
 export interface NavNode {
   title: string
   slug: string
-  path: string   // empty string = virtual folder (not clickable)
+  path: string      // empty string = virtual folder (not clickable)
+  createdAt: string // ISO-ish string; used for sorting; '' for virtual folders
   children: NavNode[]
+}
+
+interface NoteRow {
+  title: string
+  slug: string
+  parentPath: string
+  createdAt: string
 }
 
 function buildTree(rows: NoteRow[]): NavNode[] {
   const byParent = new Map<string, NavNode[]>()
   const slugSet = new Set(rows.map((r) => r.slug))
 
-  // Index all real notes by their parent
   for (const row of rows) {
-    const parent = row.parent_path || '/'
+    const parent = row.parentPath || '/'
     if (!byParent.has(parent)) byParent.set(parent, [])
     byParent.get(parent)!.push({
       title: row.title,
       slug: row.slug,
       path: `/${row.slug}`,
+      createdAt: row.createdAt,
       children: [],
     })
   }
 
-  // For any parent path that has no corresponding real note,
-  // inject a virtual folder node one level up
+  // Inject virtual folder nodes for parents with no real note
   for (const parentPath of byParent.keys()) {
     if (parentPath === '/') continue
-    const folderSlug = parentPath.slice(1) // e.g. 'startup-advice'
-    if (slugSet.has(folderSlug)) continue  // already a real note
+    const folderSlug = parentPath.slice(1)
+    if (slugSet.has(folderSlug)) continue
 
     const folderTitle = folderSlug
       .split('-')
       .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
       .join(' ')
 
-    // Determine grandparent path
     const parts = folderSlug.split('/')
     const grandParent = parts.length > 1 ? '/' + parts.slice(0, -1).join('/') : '/'
 
     if (!byParent.has(grandParent)) byParent.set(grandParent, [])
 
-    // Only add once
     if (!byParent.get(grandParent)!.find((n) => n.slug === folderSlug)) {
       byParent.get(grandParent)!.push({
         title: folderTitle,
         slug: folderSlug,
-        path: '',  // virtual — sidebar renders as non-clickable label
+        path: '',
+        createdAt: '',
         children: [],
       })
       slugSet.add(folderSlug)
@@ -64,19 +65,23 @@ function buildTree(rows: NoteRow[]): NavNode[] {
     for (const node of nodes) {
       node.children = attach(`/${node.slug}`)
     }
-    return nodes.sort((a, b) => a.title.localeCompare(b.title))
+    // Real notes sorted by createdAt DESC (newest first); virtual folders by title
+    return nodes.sort((a, b) => {
+      if (a.path && b.path) return b.createdAt.localeCompare(a.createdAt)
+      if (!a.path && !b.path) return a.title.localeCompare(b.title)
+      return a.path ? -1 : 1 // real notes before virtual folders at same level
+    })
   }
 
   return attach('/')
 }
 
-export default defineEventHandler(async () => {
-  const db = useDatabase()
-  const result = await db.sql<NoteRow>`
-    SELECT title, slug, parent_path
-    FROM notes
-    WHERE is_published = 1
-    ORDER BY parent_path ASC, title ASC
-  `
-  return buildTree(result.rows)
+export default defineEventHandler(async (event) => {
+  const db = useDb(event)
+  const results = await db
+    .select({ title: notes.title, slug: notes.slug, parentPath: notes.parentPath, createdAt: notes.createdAt })
+    .from(notes)
+    .where(eq(notes.isPublished, true))
+    .orderBy(asc(notes.parentPath))
+  return buildTree(results)
 })

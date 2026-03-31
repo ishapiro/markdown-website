@@ -11,9 +11,14 @@ const slug = ref('')
 const parentPath = ref('/')
 const content = ref('')
 const isPublished = ref(true)
+const createdAt = ref('') // YYYY-MM-DD
 const saving = ref(false)
 const saveStatus = ref<'idle' | 'saved' | 'error'>('idle')
 const errorMsg = ref('')
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10)
+}
 
 // Load note when editing
 watchEffect(async () => {
@@ -21,13 +26,14 @@ watchEffect(async () => {
     resetForm()
     return
   }
-  const data = await $fetch<{ title: string; slug: string; parentPath: string; content: string }>(
+  const data = await $fetch<{ title: string; slug: string; parentPath: string; createdAt: string; content: string }>(
     `/api/notes/${editSlug.value}`,
   ).catch(() => null)
   if (data) {
     title.value = data.title
     slug.value = data.slug
     parentPath.value = data.parentPath
+    createdAt.value = data.createdAt ? data.createdAt.slice(0, 10) : todayIso()
     content.value = data.content
   }
 })
@@ -38,6 +44,7 @@ function resetForm() {
   parentPath.value = '/'
   content.value = ''
   isPublished.value = true
+  createdAt.value = todayIso()
   saveStatus.value = 'idle'
 }
 
@@ -61,7 +68,7 @@ async function save() {
   try {
     await $fetch('/api/admin/notes', {
       method: 'POST',
-      body: { title: title.value, slug: slug.value, parent_path: parentPath.value, content: content.value, is_published: isPublished.value },
+      body: { title: title.value, slug: slug.value, parent_path: parentPath.value, content: content.value, is_published: isPublished.value, created_at: createdAt.value || undefined },
     })
     saveStatus.value = 'saved'
     editSlug.value = slug.value
@@ -150,6 +157,14 @@ async function uploadImage(e: Event) {
             type="text"
             class="bg-vault-surface rounded px-2 py-0.5 text-vault-text outline-none text-xs w-32"
             placeholder="/"
+          />
+        </label>
+        <label class="flex items-center gap-1.5 text-xs text-vault-muted">
+          Created:
+          <input
+            v-model="createdAt"
+            type="date"
+            class="bg-vault-surface rounded px-2 py-0.5 text-vault-text outline-none text-xs"
           />
         </label>
         <NuxtLink
