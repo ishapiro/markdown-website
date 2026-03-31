@@ -11,6 +11,7 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     adminEmail: process.env.ADMIN_EMAIL || '',
+    adminPassword: '',   // set via NUXT_ADMIN_PASSWORD in .dev.vars / Cloudflare secret
     systemGeminiKey: '',     // set via NUXT_SYSTEM_GEMINI_KEY in .dev.vars / Cloudflare secret
     unsplashAccessKey: '',   // set via NUXT_UNSPLASH_ACCESS_KEY in .dev.vars / Cloudflare secret
     public: {

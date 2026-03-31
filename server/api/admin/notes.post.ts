@@ -11,6 +11,7 @@ const NoteSchema = z.object({
   content: z.string(),
   is_published: z.boolean().default(true),
   created_at: z.string().optional(), // YYYY-MM-DD; if omitted, DB default is preserved on update
+  sort_order: z.number().int().nullable().optional(),
 })
 
 export default defineEventHandler(async (event) => {
@@ -21,7 +22,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: parsed.error.message })
   }
 
-  const { title, slug, parent_path, content, is_published, created_at } = parsed.data
+  const { title, slug, parent_path, content, is_published, created_at, sort_order } = parsed.data
   const r2Key = `notes/${slug}.md`
   const contentPreview = content.replace(/#+\s/g, '').replace(/\n/g, ' ').slice(0, 200)
 
@@ -49,6 +50,7 @@ export default defineEventHandler(async (event) => {
         isPublished: is_published,
         updatedAt: sql`CURRENT_TIMESTAMP`,
         ...(created_at ? { createdAt: created_at } : {}),
+        ...(sort_order !== undefined ? { sortOrder: sort_order } : {}),
       })
       .where(eq(notes.slug, slug))
   } else {
@@ -62,6 +64,7 @@ export default defineEventHandler(async (event) => {
         r2Key,
         isPublished: is_published,
         ...(created_at ? { createdAt: created_at } : {}),
+        ...(sort_order !== undefined ? { sortOrder: sort_order } : {}),
       })
   }
 

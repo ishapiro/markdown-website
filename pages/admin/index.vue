@@ -2,7 +2,7 @@
 import { marked } from 'marked'
 import type { NavNode } from '~/server/api/navigation.get'
 
-definePageMeta({ layout: 'admin' })
+definePageMeta({ layout: 'admin', middleware: ['admin-auth'] })
 
 const route = useRoute()
 const router = useRouter()
@@ -15,9 +15,13 @@ const parentPath = ref('/')
 const content = ref('')
 const isPublished = ref(true)
 const createdAt = ref('')
+const sortOrder = ref<number | null>(null)
 const saving = ref(false)
 const saveStatus = ref<'idle' | 'saved' | 'error'>('idle')
 const errorMsg = ref('')
+const sidebarRefresh = ref(0)
+
+const isNewNote = computed(() => !editSlug.value)
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
@@ -42,6 +46,7 @@ function resetForm() {
   content.value = ''
   isPublished.value = true
   createdAt.value = todayIso()
+  sortOrder.value = null
   saveStatus.value = 'idle'
 }
 
@@ -50,7 +55,7 @@ watchEffect(async () => {
     resetForm()
     return
   }
-  const data = await $fetch<{ title: string; slug: string; parentPath: string; createdAt: string; content: string }>(
+  const data = await $fetch<{ title: string; slug: string; parentPath: string; createdAt: string; content: string; sortOrder: number | null }>(
     `/api/notes/${editSlug.value}`,
   ).catch(() => null)
   if (data) {
@@ -58,6 +63,7 @@ watchEffect(async () => {
     slug.value = data.slug
     parentPath.value = data.parentPath
     createdAt.value = data.createdAt ? data.createdAt.slice(0, 10) : todayIso()
+    sortOrder.value = data.sortOrder ?? null
     content.value = data.content
   }
 })
@@ -76,11 +82,13 @@ async function save() {
         content: content.value,
         is_published: isPublished.value,
         created_at: createdAt.value || undefined,
+        sort_order: sortOrder.value,
       },
     })
     saveStatus.value = 'saved'
     editSlug.value = slug.value
     router.replace({ query: { edit: slug.value } })
+    sidebarRefresh.value++
     setTimeout(() => { saveStatus.value = 'idle' }, 3000)
   } catch (e: unknown) {
     saveStatus.value = 'error'
@@ -489,52 +497,88 @@ watch(showImagePanel, (open) => {
   <div class="flex h-[calc(100vh-3rem)] overflow-hidden">
 
     <!-- ── Note list sidebar ──────────────────────────────────────────────── -->
-    <aside class="w-56 shrink-0 border-r border-vault-border overflow-y-auto bg-vault-sidebar p-3">
-      <button
-        class="w-full text-left text-xs px-3 py-2 rounded bg-vault-accent text-white font-semibold mb-3 hover:bg-vault-accent-hover"
-        @click="editSlug = ''; router.replace({ query: {} })"
-      >
-        + New Note
-      </button>
-      <AdminNoteList @select="editSlug = $event; router.replace({ query: { edit: $event } })" />
+    <aside class="w-64 shrink-0 flex flex-col border-r border-vault-border bg-vault-sidebar">
+
+      <!-- New note button -->
+      <div class="p-3 border-b border-vault-border shrink-0">
+        <button
+          class="w-full text-left text-xs px-3 py-2 rounded font-semibold transition-colors"
+          :class="isNewNote
+            ? 'bg-vault-accent text-white ring-2 ring-vault-accent/40'
+            : 'bg-vault-accent/80 text-white hover:bg-vault-accent'"
+          @click="editSlug = ''; router.replace({ query: {} })"
+        >
+          + New Note
+        </button>
+      </div>
+
+      <!-- Note tree with search -->
+      <div class="flex-1 overflow-hidden flex flex-col p-2">
+        <p class="text-[10px] font-semibold uppercase tracking-wider text-vault-faint px-1 mb-1.5">Notes</p>
+        <AdminNoteList
+          :current-slug="editSlug"
+          :refresh-trigger="sidebarRefresh"
+          @select="editSlug = $event; router.replace({ query: { edit: $event } })"
+        />
+      </div>
     </aside>
 
     <!-- ── Editor area ────────────────────────────────────────────────────── -->
     <div class="flex-1 flex flex-col overflow-hidden min-w-0">
 
-      <!-- Top toolbar: title + meta actions -->
-      <div class="flex items-center gap-3 px-4 py-2 border-b border-vault-border bg-vault-sidebar shrink-0">
+      <!-- New note guidance banner -->
+      <div
+        v-if="isNewNote"
+        class="shrink-0 flex items-center gap-3 px-4 py-2.5 bg-vault-accent/10 border-b border-vault-accent/20 text-xs text-vault-accent"
+      >
+        <span class="font-bold text-[10px] uppercase tracking-widest bg-vault-accent text-white px-1.5 py-0.5 rounded shrink-0">New Note</span>
+        <span class="text-vault-accent/80">Enter a title below, write your content in the editor, then click <strong>Save</strong>.</span>
+      </div>
+
+      <!-- ── Title + primary actions bar ──────────────────────────────────── -->
+      <div class="flex items-center gap-3 px-4 py-2.5 border-b border-vault-border bg-vault-sidebar shrink-0">
+        <!-- Mode label (editing only) -->
+        <span
+          v-if="!isNewNote"
+          class="text-[10px] font-bold uppercase tracking-widest text-vault-faint shrink-0"
+        >Editing</span>
+
+        <!-- Title input -->
         <input
           v-model="title"
           type="text"
-          placeholder="Note title…"
+          :placeholder="isNewNote ? 'Note title…' : 'Note title…'"
           class="flex-1 bg-transparent text-sm font-semibold text-vault-text placeholder:text-vault-muted outline-none min-w-0"
         />
-        <label class="flex items-center gap-1 text-xs text-vault-muted cursor-pointer shrink-0">
-          <input v-model="isPublished" type="checkbox" class="accent-vault-accent" />
-          Published
-        </label>
-        <button
-          class="shrink-0 text-xs px-3 py-1.5 rounded font-semibold"
-          :class="saving ? 'bg-vault-muted text-white cursor-not-allowed' : 'bg-vault-accent text-white hover:bg-vault-accent-hover'"
-          :disabled="saving"
-          @click="save"
-        >
-          {{ saving ? 'Saving…' : 'Save' }}
-        </button>
-        <span v-if="saveStatus === 'saved'" class="text-xs text-green-600 shrink-0">✓ Saved</span>
-        <span v-if="saveStatus === 'error'" class="text-xs text-red-500 shrink-0">✗ {{ errorMsg }}</span>
-        <NuxtLink
-          v-if="editSlug"
-          :to="`/${editSlug}`"
-          target="_blank"
-          class="shrink-0 text-xs text-vault-muted hover:text-vault-accent"
-        >
-          View →
-        </NuxtLink>
+
+        <!-- Actions: published, view, save -->
+        <div class="flex items-center gap-2 shrink-0">
+          <label class="flex items-center gap-1 text-xs text-vault-muted cursor-pointer">
+            <input v-model="isPublished" type="checkbox" class="accent-vault-accent" />
+            Published
+          </label>
+          <NuxtLink
+            v-if="editSlug"
+            :to="`/${editSlug}`"
+            target="_blank"
+            class="text-xs text-vault-muted hover:text-vault-accent"
+          >
+            View →
+          </NuxtLink>
+          <button
+            class="text-xs px-4 py-1.5 rounded font-semibold transition-colors"
+            :class="saving
+              ? 'bg-vault-muted text-white cursor-not-allowed opacity-60'
+              : 'bg-vault-accent text-white hover:bg-vault-accent-hover'"
+            :disabled="saving"
+            @click="save"
+          >
+            {{ saving ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
       </div>
 
-      <!-- Metadata row: slug, parent, date -->
+      <!-- ── Metadata row ───────────────────────────────────────────────── -->
       <div class="flex items-center gap-4 px-4 py-1.5 border-b border-vault-border bg-vault-sidebar/50 shrink-0 flex-wrap">
         <label class="flex items-center gap-1.5 text-xs text-vault-muted">
           Slug:
@@ -562,14 +606,24 @@ watch(showImagePanel, (open) => {
             class="bg-vault-surface rounded px-2 py-0.5 text-vault-text outline-none text-xs"
           />
         </label>
+        <label class="flex items-center gap-1.5 text-xs text-vault-muted">
+          Order:
+          <input
+            :value="sortOrder ?? ''"
+            type="number"
+            placeholder="—"
+            class="bg-vault-surface rounded px-2 py-0.5 text-vault-text outline-none text-xs w-16"
+            @input="sortOrder = ($event.target as HTMLInputElement).value === '' ? null : Number(($event.target as HTMLInputElement).value)"
+          />
+        </label>
       </div>
 
-      <!-- Editor controls row -->
+      <!-- ── Editor controls row ────────────────────────────────────────── -->
       <div class="flex items-center gap-2 px-4 py-1.5 border-b border-vault-border bg-vault-sidebar/30 shrink-0 flex-wrap">
 
         <!-- Layout toggles -->
-        <div class="flex items-center gap-1 mr-2">
-          <span class="text-xs text-vault-muted mr-1">Layout:</span>
+        <div class="flex items-center gap-1">
+          <span class="text-xs text-vault-faint mr-1">Layout:</span>
           <button
             v-for="[mode, label] in [['oneThird','1/3–2/3'], ['equal','1/2–1/2'], ['twoThirds','2/3–1/3']] as [typeof layoutMode, string][]"
             :key="mode"
@@ -582,6 +636,8 @@ watch(showImagePanel, (open) => {
             {{ label }}
           </button>
         </div>
+
+        <div class="w-px h-4 bg-vault-border mx-1" />
 
         <!-- Font size -->
         <div class="flex items-center gap-0 border border-vault-border rounded overflow-hidden">
@@ -605,7 +661,7 @@ watch(showImagePanel, (open) => {
             : 'border-vault-border bg-vault-bg text-vault-muted hover:bg-vault-surface'"
           @click="lineWrap = !lineWrap"
         >
-          {{ lineWrap ? 'Wrap' : 'No wrap' }}
+          Wrap
         </button>
 
         <!-- Image panel toggle -->
@@ -616,7 +672,7 @@ watch(showImagePanel, (open) => {
             : 'border-vault-border bg-vault-bg text-vault-muted hover:bg-vault-surface'"
           @click="showImagePanel = !showImagePanel"
         >
-          🖼 Image
+          Image
         </button>
 
         <!-- Right-pane toggle (pushed to the end) -->
@@ -630,7 +686,7 @@ watch(showImagePanel, (open) => {
             class="px-3 py-0.5 text-xs font-medium transition-colors border-l border-vault-border"
             :class="rightPane === 'ai' ? 'bg-vault-accent text-white' : 'text-vault-muted hover:bg-vault-surface'"
             @click="rightPane = 'ai'"
-          >AI Assistant</button>
+          >AI</button>
         </div>
       </div>
 
@@ -895,6 +951,29 @@ watch(showImagePanel, (open) => {
           </div>
         </div>
       </div>
+
+      <!-- ── Bottom save bar ───────────────────────────────────────────────── -->
+      <div class="shrink-0 flex items-center justify-between gap-3 px-4 py-2 border-t border-vault-border bg-vault-sidebar/50">
+        <span class="text-xs text-vault-faint truncate">
+          <template v-if="isNewNote">New note — not yet saved</template>
+          <template v-else>/{{ editSlug }}</template>
+        </span>
+        <div class="flex items-center gap-2 shrink-0">
+          <span v-if="saveStatus === 'saved'" class="text-xs text-green-600">✓ Saved</span>
+          <span v-if="saveStatus === 'error'" class="text-xs text-red-500">✗ {{ errorMsg }}</span>
+          <button
+            class="text-xs px-4 py-1.5 rounded font-semibold transition-colors"
+            :class="saving
+              ? 'bg-vault-muted text-white cursor-not-allowed opacity-60'
+              : 'bg-vault-accent text-white hover:bg-vault-accent-hover'"
+            :disabled="saving"
+            @click="save"
+          >
+            {{ saving ? 'Saving…' : 'Save' }}
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>

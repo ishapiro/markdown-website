@@ -4,8 +4,9 @@ import { notes } from '~/server/utils/db/schema'
 export interface NavNode {
   title: string
   slug: string
-  path: string      // empty string = virtual folder (not clickable)
-  createdAt: string // ISO-ish string; used for sorting; '' for virtual folders
+  path: string       // empty string = virtual folder (not clickable)
+  createdAt: string  // ISO-ish string; used for sorting; '' for virtual folders
+  sortOrder: number | null
   children: NavNode[]
 }
 
@@ -14,6 +15,7 @@ interface NoteRow {
   slug: string
   parentPath: string
   createdAt: string
+  sortOrder: number | null
 }
 
 function buildTree(rows: NoteRow[]): NavNode[] {
@@ -28,6 +30,7 @@ function buildTree(rows: NoteRow[]): NavNode[] {
       slug: row.slug,
       path: `/${row.slug}`,
       createdAt: row.createdAt,
+      sortOrder: row.sortOrder,
       children: [],
     })
   }
@@ -54,10 +57,39 @@ function buildTree(rows: NoteRow[]): NavNode[] {
         slug: folderSlug,
         path: '',
         createdAt: '',
+        sortOrder: null,
         children: [],
       })
       slugSet.add(folderSlug)
     }
+  }
+
+  function sortNodes(nodes: NavNode[]): NavNode[] {
+    return nodes.sort((a, b) => {
+      const aIsReal = !!a.path
+      const bIsReal = !!b.path
+
+      // Real notes before virtual folders at the same level
+      if (aIsReal !== bIsReal) return aIsReal ? -1 : 1
+
+      if (aIsReal && bIsReal) {
+        // Both real notes: sort_order ASC (nulls last), then createdAt DESC
+        const aHas = a.sortOrder !== null && a.sortOrder !== undefined
+        const bHas = b.sortOrder !== null && b.sortOrder !== undefined
+        if (aHas && bHas) return a.sortOrder! - b.sortOrder!
+        if (aHas) return -1
+        if (bHas) return 1
+        return b.createdAt.localeCompare(a.createdAt)
+      }
+
+      // Both virtual folders: sort_order of first child (representative) then title
+      const aChildOrder = a.children.find(c => c.sortOrder !== null)?.sortOrder ?? null
+      const bChildOrder = b.children.find(c => c.sortOrder !== null)?.sortOrder ?? null
+      if (aChildOrder !== null && bChildOrder !== null) return aChildOrder - bChildOrder
+      if (aChildOrder !== null) return -1
+      if (bChildOrder !== null) return 1
+      return a.title.localeCompare(b.title)
+    })
   }
 
   function attach(parentPath: string): NavNode[] {
@@ -65,12 +97,7 @@ function buildTree(rows: NoteRow[]): NavNode[] {
     for (const node of nodes) {
       node.children = attach(`/${node.slug}`)
     }
-    // Real notes sorted by createdAt DESC (newest first); virtual folders by title
-    return nodes.sort((a, b) => {
-      if (a.path && b.path) return b.createdAt.localeCompare(a.createdAt)
-      if (!a.path && !b.path) return a.title.localeCompare(b.title)
-      return a.path ? -1 : 1 // real notes before virtual folders at same level
-    })
+    return sortNodes(nodes)
   }
 
   return attach('/')
@@ -79,7 +106,13 @@ function buildTree(rows: NoteRow[]): NavNode[] {
 export default defineEventHandler(async (event) => {
   const db = useDb(event)
   const results = await db
-    .select({ title: notes.title, slug: notes.slug, parentPath: notes.parentPath, createdAt: notes.createdAt })
+    .select({
+      title: notes.title,
+      slug: notes.slug,
+      parentPath: notes.parentPath,
+      createdAt: notes.createdAt,
+      sortOrder: notes.sortOrder,
+    })
     .from(notes)
     .where(eq(notes.isPublished, true))
     .orderBy(asc(notes.parentPath))

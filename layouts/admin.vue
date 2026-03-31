@@ -5,6 +5,10 @@
         <ArrowLeftIcon :size="16" />
       </NuxtLink>
       <span class="text-vault-accent font-semibold text-sm">Cogitations Admin</span>
+      <button
+        class="ml-auto text-xs text-vault-muted hover:text-vault-text"
+        @click="logout"
+      >Sign out</button>
     </header>
     <slot />
   </div>
@@ -12,4 +16,9 @@
 
 <script setup lang="ts">
 import { ArrowLeftIcon } from 'lucide-vue-next'
+
+async function logout() {
+  await $fetch('/api/admin/logout', { method: 'POST' }).catch(() => {})
+  await navigateTo('/admin/login')
+}
 </script>

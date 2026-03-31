@@ -1,24 +1,26 @@
-// Cloudflare Access middleware: protects all /api/admin/* routes.
-// Cloudflare Access injects the `cf-access-authenticated-user-email` header
-// after the user authenticates via Zero Trust. If this header is missing the
-// request never reached our server through the Access tunnel, so we reject it.
-export default defineEventHandler((event) => {
-  if (!getRequestPath(event).startsWith('/api/admin')) return
+import { computeAdminToken } from '~/server/utils/adminAuth'
 
-  const userEmail = getHeader(event, 'cf-access-authenticated-user-email')
+// Protects all /api/admin/* routes (except /api/admin/login).
+// Validates the httpOnly admin-token cookie set on login.
+export default defineEventHandler(async (event) => {
+  const path = getRequestPath(event)
+  if (!path.startsWith('/api/admin')) return
+  if (path === '/api/admin/login') return   // login endpoint is always public
 
-  if (!userEmail) {
-    // Allow requests from localhost — wrangler pages dev never has the CF Access header.
-    const host = getHeader(event, 'host') ?? ''
-    const isLocalDev = host.startsWith('localhost') || host.startsWith('127.0.0.1')
-    if (!isLocalDev) {
-      throw createError({
-        statusCode: 401,
-        message: 'Unauthorized: Cloudflare Access authentication required',
-      })
-    }
+  const config = useRuntimeConfig(event)
+  const adminPassword = config.adminPassword as string
+
+  if (!adminPassword) {
+    throw createError({ statusCode: 503, message: 'Admin password not configured — add NUXT_ADMIN_PASSWORD to .dev.vars' })
   }
 
-  // Attach email to the event context for downstream handlers
-  event.context.adminEmail = userEmail ?? 'local-dev'
+  const token = getCookie(event, 'admin-token')
+  if (!token) {
+    throw createError({ statusCode: 401, message: 'Not authenticated' })
+  }
+
+  const expected = await computeAdminToken(adminPassword)
+  if (token !== expected) {
+    throw createError({ statusCode: 401, message: 'Invalid session' })
+  }
 })

@@ -28,6 +28,7 @@ export default defineEventHandler(async (event) => {
     parentPath: note.parentPath,
     createdAt: note.createdAt,
     updatedAt: note.updatedAt,
+    sortOrder: note.sortOrder,
     content: await content.text(),
   }
 })
