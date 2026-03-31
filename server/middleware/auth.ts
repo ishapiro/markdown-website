@@ -8,12 +8,17 @@ export default defineEventHandler((event) => {
   const userEmail = getHeader(event, 'cf-access-authenticated-user-email')
 
   if (!userEmail) {
-    throw createError({
-      statusCode: 401,
-      message: 'Unauthorized: Cloudflare Access authentication required',
-    })
+    // Allow requests from localhost — wrangler pages dev never has the CF Access header.
+    const host = getHeader(event, 'host') ?? ''
+    const isLocalDev = host.startsWith('localhost') || host.startsWith('127.0.0.1')
+    if (!isLocalDev) {
+      throw createError({
+        statusCode: 401,
+        message: 'Unauthorized: Cloudflare Access authentication required',
+      })
+    }
   }
 
   // Attach email to the event context for downstream handlers
-  event.context.adminEmail = userEmail
+  event.context.adminEmail = userEmail ?? 'local-dev'
 })

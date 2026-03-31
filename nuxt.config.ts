@@ -11,6 +11,8 @@ export default defineNuxtConfig({
 
   runtimeConfig: {
     adminEmail: process.env.ADMIN_EMAIL || '',
+    systemGeminiKey: '',     // set via NUXT_SYSTEM_GEMINI_KEY in .dev.vars / Cloudflare secret
+    unsplashAccessKey: '',   // set via NUXT_UNSPLASH_ACCESS_KEY in .dev.vars / Cloudflare secret
     public: {
       siteName: 'Cogitations',
       siteDescription: 'A personal knowledge base',
