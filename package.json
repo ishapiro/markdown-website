@@ -8,8 +8,11 @@
     "preview": "wrangler pages dev --port 3001",
     "deploy": "nuxthub deploy",
     "db:generate": "drizzle-kit generate",
-    "db:migrate": "wrangler d1 execute cogitations-db --local --file=server/database/schema.sql",
-    "db:migrate:remote": "wrangler d1 execute cogitations-db --file=server/database/schema.sql",
+    "db:migrate": "node run-migrations.mjs",
+    "db:migrate:remote": "npx wrangler d1 execute cogitations-db --remote --file=drizzle/0000_blushing_slapstick.sql && npx wrangler d1 execute cogitations-db --remote --file=drizzle/0001_add_sort_order.sql && npx wrangler d1 execute cogitations-db --remote --file=drizzle/0002_add_show_date.sql",
+    "db:backup": "node backup-db.mjs",
+    "db:restore": "node restore-db.mjs",
+    "db:restore:list": "node restore-db.mjs --list",
     "db:studio": "drizzle-kit studio",
     "migrate": "node migrate.mjs"
   },

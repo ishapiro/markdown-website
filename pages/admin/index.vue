@@ -16,7 +16,7 @@ const content = ref('')
 const isPublished = ref(true)
 const showDate = ref(true)
 const createdAt = ref('')
-const sortOrder = ref<number | null>(null)
+const sortOrder = ref<number | null>(500)
 const saving = ref(false)
 const saveStatus = ref<'idle' | 'saved' | 'error'>('idle')
 const errorMsg = ref('')
@@ -48,7 +48,7 @@ function resetForm() {
   isPublished.value = true
   showDate.value = true
   createdAt.value = todayIso()
-  sortOrder.value = null
+  sortOrder.value = 500
   saveStatus.value = 'idle'
 }
 
@@ -576,10 +576,6 @@ watch(showImagePanel, (open) => {
             <input v-model="isPublished" type="checkbox" class="accent-vault-accent" />
             Published
           </label>
-          <label class="flex items-center gap-1 text-xs text-vault-muted cursor-pointer">
-            <input v-model="showDate" type="checkbox" class="accent-vault-accent" />
-            Show date
-          </label>
           <NuxtLink
             v-if="editSlug"
             :to="`/${editSlug}`"
@@ -638,6 +634,10 @@ watch(showImagePanel, (open) => {
             class="bg-vault-surface rounded px-2 py-0.5 text-vault-text outline-none text-xs w-16"
             @input="sortOrder = ($event.target as HTMLInputElement).value === '' ? null : Number(($event.target as HTMLInputElement).value)"
           />
+        </label>
+        <label class="flex items-center gap-1 text-xs text-vault-muted cursor-pointer">
+          <input v-model="showDate" type="checkbox" class="accent-vault-accent" />
+          Show date
         </label>
       </div>
 

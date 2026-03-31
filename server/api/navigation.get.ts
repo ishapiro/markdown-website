@@ -73,21 +73,16 @@ function buildTree(rows: NoteRow[]): NavNode[] {
       if (aIsReal !== bIsReal) return aIsReal ? -1 : 1
 
       if (aIsReal && bIsReal) {
-        // Both real notes: sort_order ASC (nulls last), then createdAt DESC
-        const aHas = a.sortOrder !== null && a.sortOrder !== undefined
-        const bHas = b.sortOrder !== null && b.sortOrder !== undefined
-        if (aHas && bHas) return a.sortOrder! - b.sortOrder!
-        if (aHas) return -1
-        if (bHas) return 1
-        return b.createdAt.localeCompare(a.createdAt)
+        // Both real notes: sort_order ASC, null treated as 9999
+        const aOrder = a.sortOrder ?? 9999
+        const bOrder = b.sortOrder ?? 9999
+        return aOrder - bOrder
       }
 
-      // Both virtual folders: sort_order of first child (representative) then title
-      const aChildOrder = a.children.find(c => c.sortOrder !== null)?.sortOrder ?? null
-      const bChildOrder = b.children.find(c => c.sortOrder !== null)?.sortOrder ?? null
-      if (aChildOrder !== null && bChildOrder !== null) return aChildOrder - bChildOrder
-      if (aChildOrder !== null) return -1
-      if (bChildOrder !== null) return 1
+      // Both virtual folders: use min child sort_order (null → 9999), then title
+      const aChildOrder = a.children.find(c => c.sortOrder !== null)?.sortOrder ?? 9999
+      const bChildOrder = b.children.find(c => c.sortOrder !== null)?.sortOrder ?? 9999
+      if (aChildOrder !== bChildOrder) return aChildOrder - bChildOrder
       return a.title.localeCompare(b.title)
     })
   }

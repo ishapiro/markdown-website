@@ -10,3 +10,4 @@ vault/
 vault2/
 .data/
 wrangler.toml
+db-backups/

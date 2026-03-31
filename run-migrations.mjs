@@ -2,6 +2,7 @@
  * Idempotent local migration runner.
  * Uses better-sqlite3 directly against the wrangler local D1 SQLite file.
  *
+ * - Backs up the database before applying any migrations
  * - CREATE TABLE  → uses IF NOT EXISTS (safe to re-run)
  * - ADD COLUMN    → checks PRAGMA table_info first, skips if column already exists
  * - Everything else → runs as-is, errors are reported but don't halt the script
@@ -20,28 +21,37 @@ const MIGRATIONS = [
   'drizzle/0002_add_show_date.sql',
 ]
 
-// Find the wrangler local D1 SQLite file
-async function findOrCreateDb() {
-  const pattern = '.wrangler/state/v3/d1/miniflare-D1DatabaseObject/*.sqlite'
-  let files = await globby(pattern)
+const BACKUP_DIR = './db-backups'
 
-  if (files.length === 0) {
-    // DB doesn't exist yet — create the directory and an empty SQLite file
-    const dir = '.wrangler/state/v3/d1/miniflare-D1DatabaseObject'
-    fs.mkdirSync(dir, { recursive: true })
-    const dbPath = path.join(dir, 'local.sqlite')
-    // Opening with better-sqlite3 creates the file
-    const db = new Database(dbPath)
-    db.close()
-    files = [dbPath]
-    console.log(`Created new SQLite file: ${dbPath}`)
-  }
-
+// Find the wrangler local D1 SQLite file (UUID-named by wrangler)
+async function findDbFile() {
+  const files = await globby('.wrangler/state/v3/d1/miniflare-D1DatabaseObject/*.sqlite', {
+    ignore: ['**/*.sqlite-shm', '**/*.sqlite-wal'],
+  })
+  if (files.length === 0) return null
   if (files.length > 1) {
     console.warn(`Warning: multiple D1 SQLite files found, using: ${files[0]}`)
   }
-
   return files[0]
+}
+
+function backupDb(dbPath) {
+  fs.mkdirSync(BACKUP_DIR, { recursive: true })
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  const dest = path.join(BACKUP_DIR, `cogitations-${ts}.sqlite`)
+  fs.copyFileSync(dbPath, dest)
+  // Copy WAL/SHM if they exist (ensures a consistent snapshot)
+  for (const ext of ['-wal', '-shm']) {
+    const src = dbPath + ext
+    if (fs.existsSync(src)) fs.copyFileSync(src, dest + ext)
+  }
+  console.log(`Backup: ${dest}`)
+  return dest
+}
+
+function hasTable(db, table) {
+  const row = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name=?`).get(table)
+  return !!row
 }
 
 function hasColumn(db, table, column) {
@@ -49,7 +59,33 @@ function hasColumn(db, table, column) {
   return cols.some((c) => c.name === column)
 }
 
-function applyStatement(db, stmt, migFile) {
+// Returns true if the statement would actually change the database.
+function statementNeeded(db, stmt) {
+  const normalized = stmt.replace(/\s+/g, ' ').trim().toUpperCase()
+
+  if (normalized.startsWith('CREATE TABLE')) {
+    const match = stmt.match(/CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?(\w+)`?/i)
+    if (match) return !hasTable(db, match[1])
+  }
+
+  if (normalized.startsWith('CREATE') && normalized.includes('INDEX')) {
+    // Indexes are low-risk; treat as always needed (they use IF NOT EXISTS)
+    return false
+  }
+
+  if (normalized.startsWith('ALTER TABLE') && normalized.includes('ADD COLUMN')) {
+    const tableMatch = stmt.match(/ALTER\s+TABLE\s+`?(\w+)`?/i)
+    const colMatch = stmt.match(/ADD\s+COLUMN\s+`?(\w+)`?/i)
+    if (tableMatch && colMatch) {
+      return !hasColumn(db, tableMatch[1], colMatch[1])
+    }
+  }
+
+  // Unknown statement type — assume it needs to run
+  return true
+}
+
+function applyStatement(db, stmt) {
   const normalized = stmt.replace(/\s+/g, ' ').trim().toUpperCase()
 
   // ALTER TABLE ... ADD COLUMN — check first via PRAGMA
@@ -68,10 +104,8 @@ function applyStatement(db, stmt, migFile) {
 
   try {
     db.exec(stmt)
-    // Print just the first 80 chars for readability
     console.log(`  ✓  ${stmt.replace(/\s+/g, ' ').trim().slice(0, 80)}`)
   } catch (e) {
-    // Treat "already exists" errors as warnings, not failures
     if (e.message.includes('already exists')) {
       console.log(`  ↷  Already exists — skipped (${e.message})`)
     } else {
@@ -81,31 +115,53 @@ function applyStatement(db, stmt, migFile) {
   }
 }
 
+function parseMigration(migFile) {
+  const sql = fs.readFileSync(migFile, 'utf-8')
+  return sql
+    .split(/--> statement-breakpoint|\n;/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0 && !s.startsWith('--'))
+}
+
 async function run() {
-  const dbPath = await findOrCreateDb()
+  const dbPath = await findDbFile()
+
+  if (!dbPath) {
+    console.error('No local D1 database found. Run "npx wrangler d1 execute cogitations-db --local --command=SELECT 1" once to initialise it, then retry.')
+    process.exit(1)
+  }
+
   console.log(`Database: ${dbPath}\n`)
 
   const db = new Database(dbPath)
 
+  // Parse all migrations and check which statements actually need to run
+  const pending = []
   for (const migFile of MIGRATIONS) {
     if (!fs.existsSync(migFile)) {
       console.warn(`Migration file not found, skipping: ${migFile}`)
       continue
     }
+    const stmts = parseMigration(migFile)
+    const needed = stmts.filter((s) => statementNeeded(db, s))
+    if (needed.length > 0) pending.push({ migFile, stmts })
+  }
 
+  if (pending.length === 0) {
+    console.log('All migrations already applied — nothing to do.')
+    db.close()
+    return
+  }
+
+  // Only backup if there is actual work to do
+  backupDb(dbPath)
+  console.log()
+
+  for (const { migFile, stmts } of pending) {
     console.log(`Applying: ${migFile}`)
-    const sql = fs.readFileSync(migFile, 'utf-8')
-
-    // Split on Drizzle breakpoint markers; also handle plain semicolons
-    const statements = sql
-      .split(/--> statement-breakpoint|\n;/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0 && !s.startsWith('--'))
-
-    for (const stmt of statements) {
-      applyStatement(db, stmt, migFile)
+    for (const stmt of stmts) {
+      applyStatement(db, stmt)
     }
-
     console.log()
   }
 

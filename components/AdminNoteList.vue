@@ -81,12 +81,9 @@ function buildTree(rows: NoteRow[]): TreeNode[] {
       const bIsReal = !b.isFolder
       if (aIsReal !== bIsReal) return aIsReal ? -1 : 1
       if (aIsReal && bIsReal) {
-        const aHas = a.sortOrder !== null
-        const bHas = b.sortOrder !== null
-        if (aHas && bHas) return a.sortOrder! - b.sortOrder!
-        if (aHas) return -1
-        if (bHas) return 1
-        return b.createdAt.localeCompare(a.createdAt)
+        const aOrder = a.sortOrder ?? 9999
+        const bOrder = b.sortOrder ?? 9999
+        return aOrder - bOrder
       }
       return a.title.localeCompare(b.title)
     })

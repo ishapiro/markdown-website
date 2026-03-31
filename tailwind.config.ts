@@ -81,9 +81,14 @@ export default {
               fontWeight: 'normal',
             },
             pre: {
-              background: theme('colors.vault.sidebar'),
+              background: theme('colors.vault.surface'),
               border: `1px solid ${theme('colors.vault.border')}`,
               borderRadius: '4px',
+              color: theme('colors.vault.text'),
+            },
+            'pre code': {
+              color: theme('colors.vault.text'),
+              background: 'transparent',
             },
             blockquote: {
               borderLeftColor: theme('colors.vault.accent'),
