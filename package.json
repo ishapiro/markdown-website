@@ -9,7 +9,7 @@
     "deploy": "nuxt build && wrangler deploy --config wrangler.toml",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node run-migrations.mjs",
-    "db:migrate:remote": "npx wrangler d1 execute cogitations-db --remote --file=drizzle/0000_blushing_slapstick.sql && npx wrangler d1 execute cogitations-db --remote --file=drizzle/0001_add_sort_order.sql && npx wrangler d1 execute cogitations-db --remote --file=drizzle/0002_add_show_date.sql",
+    "db:migrate:remote": "node run-remote-migrations.mjs",
     "db:backup": "node backup-db.mjs",
     "db:restore": "node restore-db.mjs",
     "db:restore:list": "node restore-db.mjs --list",

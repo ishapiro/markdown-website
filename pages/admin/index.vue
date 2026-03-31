@@ -24,6 +24,9 @@ const sidebarRefresh = ref(0)
 
 const isNewNote = computed(() => !editSlug.value)
 
+// ── Folder paths for parent picker ──────────────────────────────────────────
+const { data: folderPaths, refresh: refreshFolderPaths } = await useFetch<string[]>('/api/admin/folder-paths')
+
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -57,13 +60,14 @@ watchEffect(async () => {
     resetForm()
     return
   }
-  const data = await $fetch<{ title: string; slug: string; parentPath: string; createdAt: string; content: string; sortOrder: number | null; showDate: boolean }>(
-    `/api/notes/${editSlug.value}`,
+  const data = await $fetch<{ title: string; slug: string; parentPath: string; isPublished: boolean; createdAt: string; content: string; sortOrder: number | null; showDate: boolean }>(
+    `/api/admin/notes/${editSlug.value}`,
   ).catch(() => null)
   if (data) {
     title.value = data.title
     slug.value = data.slug
     parentPath.value = data.parentPath
+    isPublished.value = data.isPublished !== false
     createdAt.value = data.createdAt ? data.createdAt.slice(0, 10) : todayIso()
     sortOrder.value = data.sortOrder ?? null
     showDate.value = data.showDate !== false
@@ -93,6 +97,7 @@ async function save() {
     editSlug.value = slug.value
     router.replace({ query: { edit: slug.value } })
     sidebarRefresh.value++
+    refreshFolderPaths()
     setTimeout(() => { saveStatus.value = 'idle' }, 3000)
   } catch (e: unknown) {
     saveStatus.value = 'error'
@@ -100,6 +105,16 @@ async function save() {
   } finally {
     saving.value = false
   }
+}
+
+// ── Delete page ──────────────────────────────────────────────────────────────
+async function deletePage() {
+  if (!confirm(`Delete "${title.value}" permanently? This cannot be undone.`)) return
+  await $fetch(`/api/admin/notes/${editSlug.value}`, { method: 'DELETE', query: { hard: 'true' } })
+  editSlug.value = ''
+  router.replace({ query: {} })
+  resetForm()
+  sidebarRefresh.value++
 }
 
 // ── Editor controls ──────────────────────────────────────────────────────────
@@ -555,37 +570,53 @@ watch(showImagePanel, (open) => {
       </div>
 
       <!-- ── Title + primary actions bar ──────────────────────────────────── -->
-      <div class="flex items-center gap-3 px-4 py-2.5 border-b border-vault-border bg-vault-sidebar shrink-0">
-        <!-- Mode label (editing only) -->
+      <div class="flex items-center gap-4 px-5 py-3 border-b border-vault-border bg-vault-sidebar shrink-0">
+        <!-- Mode badge (editing only) -->
         <span
           v-if="!isNewNote"
-          class="text-[10px] font-bold uppercase tracking-widest text-vault-faint shrink-0"
+          class="text-[10px] font-semibold uppercase tracking-widest text-vault-faint bg-vault-surface px-2 py-0.5 rounded-full shrink-0 select-none"
         >Editing</span>
 
         <!-- Title input -->
         <input
           v-model="title"
           type="text"
-          :placeholder="isNewNote ? 'Note title…' : 'Note title…'"
+          placeholder="Note title…"
           class="flex-1 bg-transparent text-sm font-semibold text-vault-text placeholder:text-vault-muted outline-none min-w-0"
         />
 
-        <!-- Actions: published, view, save -->
-        <div class="flex items-center gap-2 shrink-0">
-          <label class="flex items-center gap-1 text-xs text-vault-muted cursor-pointer">
-            <input v-model="isPublished" type="checkbox" class="accent-vault-accent" />
-            Published
+        <!-- Actions group -->
+        <div class="flex items-center gap-3 shrink-0">
+          <!-- Published toggle -->
+          <label class="flex items-center gap-2 text-xs cursor-pointer select-none">
+            <input v-model="isPublished" type="checkbox" class="accent-vault-accent w-3.5 h-3.5" />
+            <span :class="isPublished ? 'text-vault-text font-medium' : 'text-vault-faint'">Published</span>
           </label>
+
+          <div class="w-px h-4 bg-vault-border shrink-0" />
+
+          <!-- View link styled as ghost button -->
           <NuxtLink
             v-if="editSlug"
             :to="`/${editSlug}`"
             target="_blank"
-            class="text-xs text-vault-muted hover:text-vault-accent"
+            class="inline-flex items-center gap-1 text-xs text-vault-muted hover:text-vault-accent border border-vault-border hover:border-vault-accent rounded-md px-3 py-1.5 transition-colors font-medium"
           >
-            View →
+            View <span class="opacity-60 text-[10px]">↗</span>
           </NuxtLink>
+
+          <!-- Delete button (danger, outlined) -->
           <button
-            class="text-xs px-4 py-1.5 rounded font-semibold transition-colors"
+            v-if="!isNewNote"
+            class="text-xs px-3 py-1.5 rounded-md font-medium transition-colors border border-red-300 text-red-400 hover:bg-red-50 hover:border-red-400"
+            @click="deletePage"
+          >
+            Delete
+          </button>
+
+          <!-- Save button (primary) -->
+          <button
+            class="text-xs px-5 py-1.5 rounded-md font-semibold transition-colors shadow-sm"
             :class="saving
               ? 'bg-vault-muted text-white cursor-not-allowed opacity-60'
               : 'bg-vault-accent text-white hover:bg-vault-accent-hover'"
@@ -598,90 +629,95 @@ watch(showImagePanel, (open) => {
       </div>
 
       <!-- ── Metadata row ───────────────────────────────────────────────── -->
-      <div class="flex items-center gap-4 px-4 py-1.5 border-b border-vault-border bg-vault-sidebar/50 shrink-0 flex-wrap">
-        <label class="flex items-center gap-1.5 text-xs text-vault-muted">
-          Slug:
+      <div class="flex items-center gap-5 px-5 py-2 border-b border-vault-border bg-vault-sidebar/40 shrink-0 flex-wrap">
+        <label class="flex items-center gap-2 text-xs">
+          <span class="text-vault-faint font-medium select-none">Slug</span>
           <input
             v-model="slug"
             type="text"
-            class="bg-vault-surface rounded px-2 py-0.5 text-vault-text outline-none text-xs w-56"
+            class="bg-vault-bg border border-vault-border rounded-md px-2.5 py-1 text-vault-text outline-none text-xs w-56 focus:border-vault-accent transition-colors"
             placeholder="folder/note-name"
           />
         </label>
-        <label class="flex items-center gap-1.5 text-xs text-vault-muted">
-          Parent:
+        <label class="flex items-center gap-2 text-xs">
+          <span class="text-vault-faint font-medium select-none">Parent</span>
           <input
             v-model="parentPath"
             type="text"
-            class="bg-vault-surface rounded px-2 py-0.5 text-vault-text outline-none text-xs w-28"
+            list="folder-paths-list"
+            class="bg-vault-bg border border-vault-border rounded-md px-2.5 py-1 text-vault-text outline-none text-xs w-36 focus:border-vault-accent transition-colors"
             placeholder="/"
           />
+          <datalist id="folder-paths-list">
+            <option v-for="p in folderPaths" :key="p" :value="p" />
+          </datalist>
         </label>
-        <label class="flex items-center gap-1.5 text-xs text-vault-muted">
-          Created:
+        <label class="flex items-center gap-2 text-xs">
+          <span class="text-vault-faint font-medium select-none">Created</span>
           <input
             v-model="createdAt"
             type="date"
-            class="bg-vault-surface rounded px-2 py-0.5 text-vault-text outline-none text-xs"
+            class="bg-vault-bg border border-vault-border rounded-md px-2.5 py-1 text-vault-text outline-none text-xs focus:border-vault-accent transition-colors"
           />
         </label>
-        <label class="flex items-center gap-1.5 text-xs text-vault-muted">
-          Order:
+        <label class="flex items-center gap-2 text-xs">
+          <span class="text-vault-faint font-medium select-none">Order</span>
           <input
             :value="sortOrder ?? ''"
             type="number"
             placeholder="—"
-            class="bg-vault-surface rounded px-2 py-0.5 text-vault-text outline-none text-xs w-16"
+            class="bg-vault-bg border border-vault-border rounded-md px-2.5 py-1 text-vault-text outline-none text-xs w-16 focus:border-vault-accent transition-colors"
             @input="sortOrder = ($event.target as HTMLInputElement).value === '' ? null : Number(($event.target as HTMLInputElement).value)"
           />
         </label>
-        <label class="flex items-center gap-1 text-xs text-vault-muted cursor-pointer">
-          <input v-model="showDate" type="checkbox" class="accent-vault-accent" />
-          Show date
+        <label class="flex items-center gap-2 text-xs cursor-pointer select-none">
+          <input v-model="showDate" type="checkbox" class="accent-vault-accent w-3.5 h-3.5" />
+          <span class="text-vault-faint font-medium">Show date</span>
         </label>
       </div>
 
       <!-- ── Editor controls row ────────────────────────────────────────── -->
-      <div class="flex items-center gap-2 px-4 py-1.5 border-b border-vault-border bg-vault-sidebar/30 shrink-0 flex-wrap">
+      <div class="flex items-center gap-3 px-5 py-2 border-b border-vault-border bg-vault-bg shrink-0 flex-wrap">
 
-        <!-- Layout toggles -->
-        <div class="flex items-center gap-1">
-          <span class="text-xs text-vault-faint mr-1">Layout:</span>
+        <!-- Layout segmented control -->
+        <div class="flex items-center gap-0 border border-vault-border rounded-md overflow-hidden">
           <button
             v-for="[mode, label] in [['oneThird','1/3–2/3'], ['equal','1/2–1/2'], ['twoThirds','2/3–1/3']] as [typeof layoutMode, string][]"
             :key="mode"
-            class="text-xs px-2 py-0.5 rounded border transition-colors"
+            class="px-2.5 py-1 text-xs font-medium transition-colors border-r border-vault-border last:border-r-0"
             :class="layoutMode === mode
-              ? 'border-vault-accent bg-vault-accent text-white'
-              : 'border-vault-border bg-vault-bg text-vault-muted hover:bg-vault-surface'"
+              ? 'bg-vault-accent text-white'
+              : 'text-vault-muted hover:bg-vault-surface bg-transparent'"
             @click="layoutMode = mode"
           >
             {{ label }}
           </button>
         </div>
 
-        <div class="w-px h-4 bg-vault-border mx-1" />
+        <div class="w-px h-4 bg-vault-border shrink-0" />
 
-        <!-- Font size -->
-        <div class="flex items-center gap-0 border border-vault-border rounded overflow-hidden">
+        <!-- Font size segmented control -->
+        <div class="flex items-center gap-0 border border-vault-border rounded-md overflow-hidden">
           <button
-            class="px-2 py-0.5 text-xs text-vault-muted hover:bg-vault-surface"
+            class="px-2.5 py-1 text-xs font-medium text-vault-muted hover:bg-vault-surface transition-colors"
             title="Decrease font size"
             @click="fontSizeStep = Math.max(0, fontSizeStep - 1)"
           >A−</button>
           <button
-            class="px-2 py-0.5 text-xs text-vault-muted hover:bg-vault-surface border-l border-vault-border"
+            class="px-2.5 py-1 text-xs font-medium text-vault-muted hover:bg-vault-surface transition-colors border-l border-vault-border"
             title="Increase font size"
             @click="fontSizeStep = Math.min(FONT_SIZES.length - 1, fontSizeStep + 1)"
           >A+</button>
         </div>
 
+        <div class="w-px h-4 bg-vault-border shrink-0" />
+
         <!-- Wrap toggle -->
         <button
-          class="text-xs px-2 py-0.5 rounded border transition-colors"
+          class="text-xs px-2.5 py-1 rounded-md border font-medium transition-colors"
           :class="lineWrap
-            ? 'border-vault-accent bg-vault-accent text-white'
-            : 'border-vault-border bg-vault-bg text-vault-muted hover:bg-vault-surface'"
+            ? 'border-vault-accent/40 bg-vault-accent/10 text-vault-accent'
+            : 'border-vault-border text-vault-muted hover:bg-vault-surface'"
           @click="lineWrap = !lineWrap"
         >
           Wrap
@@ -689,10 +725,10 @@ watch(showImagePanel, (open) => {
 
         <!-- Image panel toggle -->
         <button
-          class="text-xs px-2 py-0.5 rounded border transition-colors"
+          class="text-xs px-2.5 py-1 rounded-md border font-medium transition-colors"
           :class="showImagePanel
-            ? 'border-vault-accent bg-vault-accent text-white'
-            : 'border-vault-border bg-vault-bg text-vault-muted hover:bg-vault-surface'"
+            ? 'border-vault-accent/40 bg-vault-accent/10 text-vault-accent'
+            : 'border-vault-border text-vault-muted hover:bg-vault-surface'"
           @click="showImagePanel = !showImagePanel"
         >
           Image
@@ -700,26 +736,26 @@ watch(showImagePanel, (open) => {
 
         <!-- Reformat / grammar -->
         <button
-          class="text-xs px-2 py-0.5 rounded border transition-colors"
+          class="text-xs px-2.5 py-1 rounded-md border font-medium transition-colors"
           :class="aiAsking
-            ? 'border-vault-border bg-vault-bg text-vault-faint cursor-not-allowed'
-            : 'border-vault-border bg-vault-bg text-vault-muted hover:bg-vault-surface'"
+            ? 'border-vault-border text-vault-faint cursor-not-allowed opacity-50'
+            : 'border-vault-border text-vault-muted hover:bg-vault-surface'"
           :disabled="aiAsking || !content"
           title="Fix spelling, grammar, and formatting with AI"
           @click="reformatAndGrammar"
         >
-          {{ aiAsking && rightPane === 'ai' ? 'Checking…' : 'Reformat/Grammar' }}
+          {{ aiAsking && rightPane === 'ai' ? 'Checking…' : 'Reformat / Grammar' }}
         </button>
 
-        <!-- Right-pane toggle (pushed to the end) -->
-        <div class="ml-auto flex items-center gap-1 border border-vault-border rounded overflow-hidden">
+        <!-- Right-pane segmented control (pushed to end) -->
+        <div class="ml-auto flex items-center gap-0 border border-vault-border rounded-md overflow-hidden">
           <button
-            class="px-3 py-0.5 text-xs font-medium transition-colors"
+            class="px-3.5 py-1 text-xs font-medium transition-colors"
             :class="rightPane === 'preview' ? 'bg-vault-accent text-white' : 'text-vault-muted hover:bg-vault-surface'"
             @click="rightPane = 'preview'"
           >Preview</button>
           <button
-            class="px-3 py-0.5 text-xs font-medium transition-colors border-l border-vault-border"
+            class="px-3.5 py-1 text-xs font-medium transition-colors border-l border-vault-border"
             :class="rightPane === 'ai' ? 'bg-vault-accent text-white' : 'text-vault-muted hover:bg-vault-surface'"
             @click="rightPane = 'ai'"
           >AI</button>

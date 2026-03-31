@@ -9,6 +9,7 @@ export default defineEventHandler(async (event) => {
       title: notes.title,
       slug: notes.slug,
       isPublished: notes.isPublished,
+      isFolder: notes.isFolder,
       parentPath: notes.parentPath,
       sortOrder: notes.sortOrder,
       createdAt: notes.createdAt,

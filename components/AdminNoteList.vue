@@ -6,6 +6,7 @@ interface NoteRow {
   title: string
   slug: string
   isPublished: boolean
+  isFolder: boolean
   parentPath: string
   sortOrder: number | null
   createdAt: string
@@ -25,6 +26,50 @@ const { data: notes, refresh } = await useFetch<NoteRow[]>('/api/admin/list')
 const search = ref('')
 const deleting = ref<string | null>(null)
 
+// New folder form state
+const showNewFolder = ref(false)
+const newFolderName = ref('')
+const newFolderSlug = ref('')
+const newFolderParent = ref('/')
+const creatingFolder = ref(false)
+
+watch(newFolderName, (name) => {
+  newFolderSlug.value = name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 100)
+})
+
+function cancelNewFolder() {
+  showNewFolder.value = false
+  newFolderName.value = ''
+  newFolderSlug.value = ''
+  newFolderParent.value = '/'
+}
+
+async function createFolder() {
+  if (!newFolderName.value.trim() || !newFolderSlug.value.trim()) return
+  creatingFolder.value = true
+  try {
+    await $fetch('/api/admin/folders', {
+      method: 'POST',
+      body: {
+        name: newFolderName.value.trim(),
+        slug: newFolderSlug.value.trim(),
+        parentPath: newFolderParent.value || '/',
+      },
+    })
+    cancelNewFolder()
+    await refresh()
+  } catch (e: unknown) {
+    alert((e as { data?: { message?: string } })?.data?.message ?? 'Failed to create folder')
+  } finally {
+    creatingFolder.value = false
+  }
+}
+
 watch(() => props.refreshTrigger, () => refresh())
 
 function buildTree(rows: NoteRow[]): TreeNode[] {
@@ -37,7 +82,7 @@ function buildTree(rows: NoteRow[]): TreeNode[] {
     byParent.get(parent)!.push({
       title: row.title || row.slug,
       slug: row.slug,
-      isFolder: false,
+      isFolder: row.isFolder,
       isPublished: row.isPublished,
       sortOrder: row.sortOrder,
       createdAt: row.createdAt,
@@ -121,7 +166,7 @@ const flatList = computed(() => {
         node: {
           title: n.title || n.slug,
           slug: n.slug,
-          isFolder: false,
+          isFolder: n.isFolder,
           isPublished: n.isPublished,
           sortOrder: n.sortOrder,
           createdAt: n.createdAt,
@@ -133,6 +178,15 @@ const flatList = computed(() => {
   return flattenTree(buildTree(notes.value ?? []))
 })
 
+function childCount(folderSlug: string): number {
+  return (notes.value ?? []).filter((n) => n.parentPath === `/${folderSlug}`).length
+}
+
+// Check if a folder node is DB-backed (has a real record) vs purely virtual
+function isFolderInDb(slug: string): boolean {
+  return (notes.value ?? []).some((n) => n.slug === slug && n.isFolder)
+}
+
 async function deleteNote(slug: string) {
   if (!confirm(`Unpublish "${slug}"?`)) return
   deleting.value = slug
@@ -140,18 +194,74 @@ async function deleteNote(slug: string) {
   deleting.value = null
   await refresh()
 }
+
+async function deleteFolder(node: TreeNode) {
+  const count = childCount(node.slug)
+  const childMsg = count > 0 ? ` ${count} note${count === 1 ? '' : 's'} inside will be moved to its parent section.` : ''
+  if (!confirm(`Delete folder "${node.title}"?${childMsg}`)) return
+  deleting.value = node.slug
+  await $fetch(`/api/admin/notes/${node.slug}?hard=true`, { method: 'DELETE' }).catch(() => null)
+  deleting.value = null
+  await refresh()
+}
 </script>
 
 <template>
   <div class="flex flex-col h-full">
-    <!-- Search -->
-    <div class="px-2 pb-2">
+    <!-- Header: Search + New Folder button -->
+    <div class="px-2 pb-2 flex gap-1">
       <input
         v-model="search"
         type="text"
         placeholder="Search notes…"
-        class="w-full rounded border border-vault-border bg-vault-bg px-2 py-1 text-xs text-vault-text outline-none placeholder:text-vault-faint focus:border-vault-accent"
+        class="flex-1 rounded border border-vault-border bg-vault-bg px-2 py-1 text-xs text-vault-text outline-none placeholder:text-vault-faint focus:border-vault-accent"
       />
+      <button
+        title="New folder"
+        class="shrink-0 rounded border border-vault-border bg-vault-bg px-2 py-1 text-xs text-vault-muted hover:text-vault-accent hover:border-vault-accent transition-colors font-medium"
+        @click="showNewFolder = !showNewFolder"
+      >
+        + Folder
+      </button>
+    </div>
+
+    <!-- New folder form -->
+    <div v-if="showNewFolder" class="px-2 pb-2 space-y-1 border-b border-vault-border mb-1">
+      <input
+        v-model="newFolderName"
+        type="text"
+        placeholder="Folder name"
+        class="w-full rounded border border-vault-border bg-vault-bg px-2 py-1 text-xs text-vault-text outline-none placeholder:text-vault-faint focus:border-vault-accent"
+        @keydown.enter="createFolder"
+        @keydown.escape="cancelNewFolder"
+      />
+      <input
+        v-model="newFolderSlug"
+        type="text"
+        placeholder="slug"
+        class="w-full rounded border border-vault-border bg-vault-bg px-2 py-1 text-xs text-vault-text outline-none placeholder:text-vault-faint focus:border-vault-accent font-mono"
+      />
+      <input
+        v-model="newFolderParent"
+        type="text"
+        placeholder="Parent path (e.g. /)"
+        class="w-full rounded border border-vault-border bg-vault-bg px-2 py-1 text-xs text-vault-text outline-none placeholder:text-vault-faint focus:border-vault-accent font-mono"
+      />
+      <div class="flex gap-1">
+        <button
+          :disabled="creatingFolder || !newFolderName.trim()"
+          class="flex-1 rounded bg-vault-accent text-white px-2 py-1 text-xs disabled:opacity-50"
+          @click="createFolder"
+        >
+          {{ creatingFolder ? 'Creating…' : 'Create' }}
+        </button>
+        <button
+          class="flex-1 rounded border border-vault-border px-2 py-1 text-xs text-vault-muted hover:text-vault-text"
+          @click="cancelNewFolder"
+        >
+          Cancel
+        </button>
+      </div>
     </div>
 
     <!-- Tree list -->
@@ -163,12 +273,21 @@ async function deleteNote(slug: string) {
           class="group flex items-center"
           :style="{ paddingLeft: `${depth * 12 + 4}px` }"
         >
-          <!-- Virtual folder (non-clickable header) -->
+          <!-- Folder node -->
           <template v-if="node.isFolder">
             <span class="flex-1 flex items-center gap-1 py-1 pr-2 text-xs font-semibold text-vault-muted uppercase tracking-wide select-none">
               <span class="opacity-50">▸</span>
               {{ node.title }}
             </span>
+            <button
+              v-if="isFolderInDb(node.slug)"
+              class="shrink-0 text-vault-faint hover:text-red-400 px-1 text-xs"
+              title="Delete folder"
+              :disabled="deleting === node.slug"
+              @click.stop="deleteFolder(node)"
+            >
+              ✕
+            </button>
           </template>
 
           <!-- Real note (clickable) -->
