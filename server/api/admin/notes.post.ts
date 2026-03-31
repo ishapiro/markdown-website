@@ -10,6 +10,7 @@ const NoteSchema = z.object({
   parent_path: z.string().default('/'),
   content: z.string(),
   is_published: z.boolean().default(true),
+  show_date: z.boolean().default(true),
   created_at: z.string().optional(), // YYYY-MM-DD; if omitted, DB default is preserved on update
   sort_order: z.number().int().nullable().optional(),
 })
@@ -22,7 +23,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: parsed.error.message })
   }
 
-  const { title, slug, parent_path, content, is_published, created_at, sort_order } = parsed.data
+  const { title, slug, parent_path, content, is_published, show_date, created_at, sort_order } = parsed.data
   const r2Key = `notes/${slug}.md`
   const contentPreview = content.replace(/#+\s/g, '').replace(/\n/g, ' ').slice(0, 200)
 
@@ -33,11 +34,17 @@ export default defineEventHandler(async (event) => {
   })
 
   const db = useDb(event)
-  const existing = await db
-    .select({ id: notes.id })
-    .from(notes)
-    .where(eq(notes.slug, slug))
-    .get()
+  let existing
+  try {
+    existing = await db
+      .select({ id: notes.id })
+      .from(notes)
+      .where(eq(notes.slug, slug))
+      .get()
+  } catch (e) {
+    console.error('[notes.post] select error:', (e as Error).message)
+    throw createError({ statusCode: 500, message: `DB select failed: ${(e as Error).message}` })
+  }
 
   if (existing) {
     await db
@@ -48,24 +55,31 @@ export default defineEventHandler(async (event) => {
         contentPreview,
         r2Key,
         isPublished: is_published,
+        showDate: show_date,
         updatedAt: sql`CURRENT_TIMESTAMP`,
         ...(created_at ? { createdAt: created_at } : {}),
         ...(sort_order !== undefined ? { sortOrder: sort_order } : {}),
       })
       .where(eq(notes.slug, slug))
   } else {
-    await db
-      .insert(notes)
-      .values({
-        title,
-        slug,
-        parentPath: parent_path,
-        contentPreview,
-        r2Key,
-        isPublished: is_published,
-        ...(created_at ? { createdAt: created_at } : {}),
-        ...(sort_order !== undefined ? { sortOrder: sort_order } : {}),
-      })
+    try {
+      await db
+        .insert(notes)
+        .values({
+          title,
+          slug,
+          parentPath: parent_path,
+          contentPreview,
+          r2Key,
+          isPublished: is_published,
+          showDate: show_date,
+          ...(created_at ? { createdAt: created_at } : {}),
+          ...(sort_order !== undefined ? { sortOrder: sort_order } : {}),
+        })
+    } catch (e) {
+      console.error('[notes.post] insert error:', (e as Error).message)
+      throw createError({ statusCode: 500, message: `DB insert failed: ${(e as Error).message}` })
+    }
   }
 
   return { ok: true, slug }

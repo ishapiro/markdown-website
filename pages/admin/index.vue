@@ -14,6 +14,7 @@ const slug = ref('')
 const parentPath = ref('/')
 const content = ref('')
 const isPublished = ref(true)
+const showDate = ref(true)
 const createdAt = ref('')
 const sortOrder = ref<number | null>(null)
 const saving = ref(false)
@@ -45,6 +46,7 @@ function resetForm() {
   parentPath.value = '/'
   content.value = ''
   isPublished.value = true
+  showDate.value = true
   createdAt.value = todayIso()
   sortOrder.value = null
   saveStatus.value = 'idle'
@@ -55,7 +57,7 @@ watchEffect(async () => {
     resetForm()
     return
   }
-  const data = await $fetch<{ title: string; slug: string; parentPath: string; createdAt: string; content: string; sortOrder: number | null }>(
+  const data = await $fetch<{ title: string; slug: string; parentPath: string; createdAt: string; content: string; sortOrder: number | null; showDate: boolean }>(
     `/api/notes/${editSlug.value}`,
   ).catch(() => null)
   if (data) {
@@ -64,6 +66,7 @@ watchEffect(async () => {
     parentPath.value = data.parentPath
     createdAt.value = data.createdAt ? data.createdAt.slice(0, 10) : todayIso()
     sortOrder.value = data.sortOrder ?? null
+    showDate.value = data.showDate !== false
     content.value = data.content
   }
 })
@@ -81,6 +84,7 @@ async function save() {
         parent_path: parentPath.value,
         content: content.value,
         is_published: isPublished.value,
+        show_date: showDate.value,
         created_at: createdAt.value || undefined,
         sort_order: sortOrder.value,
       },
@@ -280,6 +284,21 @@ function replaceSelectionWithAiResult() {
   const { from, to } = selectionMeta.value
   content.value = current.slice(0, from) + snippet + current.slice(to)
   externalCursorPos.value = from + snippet.length
+}
+
+function replaceAllWithAiResult() {
+  if (!aiAnswer.value) return
+  content.value = aiAnswer.value
+  externalCursorPos.value = 0
+}
+
+function reformatAndGrammar() {
+  rightPane.value = 'ai'
+  aiPromptExpanded.value = true
+  aiAnswer.value = ''
+  aiError.value = ''
+  aiPrompt.value = 'Fix all spelling mistakes, grammar errors, and formatting issues in this note. Correct punctuation, capitalization, and paragraph structure where needed. Do not change the meaning, content, or structure — only fix errors and clean up the text.'
+  askAi()
 }
 
 // Track AI result pane text selection
@@ -557,6 +576,10 @@ watch(showImagePanel, (open) => {
             <input v-model="isPublished" type="checkbox" class="accent-vault-accent" />
             Published
           </label>
+          <label class="flex items-center gap-1 text-xs text-vault-muted cursor-pointer">
+            <input v-model="showDate" type="checkbox" class="accent-vault-accent" />
+            Show date
+          </label>
           <NuxtLink
             v-if="editSlug"
             :to="`/${editSlug}`"
@@ -673,6 +696,19 @@ watch(showImagePanel, (open) => {
           @click="showImagePanel = !showImagePanel"
         >
           Image
+        </button>
+
+        <!-- Reformat / grammar -->
+        <button
+          class="text-xs px-2 py-0.5 rounded border transition-colors"
+          :class="aiAsking
+            ? 'border-vault-border bg-vault-bg text-vault-faint cursor-not-allowed'
+            : 'border-vault-border bg-vault-bg text-vault-muted hover:bg-vault-surface'"
+          :disabled="aiAsking || !content"
+          title="Fix spelling, grammar, and formatting with AI"
+          @click="reformatAndGrammar"
+        >
+          {{ aiAsking && rightPane === 'ai' ? 'Checking…' : 'Reformat/Grammar' }}
         </button>
 
         <!-- Right-pane toggle (pushed to the end) -->
@@ -915,7 +951,7 @@ watch(showImagePanel, (open) => {
             >
               <div class="mb-2 flex items-center justify-between gap-2 flex-wrap">
                 <p class="text-[11px] font-semibold uppercase tracking-wide text-vault-muted">Result</p>
-                <div class="flex gap-1">
+                <div class="flex gap-1 flex-wrap">
                   <button
                     class="text-xs px-2 py-0.5 rounded border border-vault-border text-vault-muted hover:bg-vault-surface disabled:opacity-40"
                     :disabled="!aiAnswer || !selectionMeta || selectionMeta.empty"
@@ -926,6 +962,13 @@ watch(showImagePanel, (open) => {
                     :disabled="!aiAnswer"
                     @click="insertAiResultAtCursor"
                   >{{ selectedAiText ? 'Insert selection' : 'Insert at cursor' }}</button>
+                  <button
+                    class="text-xs px-3 py-0.5 rounded border font-semibold disabled:opacity-40 transition-colors"
+                    :class="aiAnswer ? 'border-vault-accent bg-vault-accent text-white hover:bg-vault-accent-hover' : 'border-vault-border text-vault-faint'"
+                    :disabled="!aiAnswer"
+                    title="Replace entire note content with this result"
+                    @click="replaceAllWithAiResult"
+                  >Replace page</button>
                 </div>
               </div>
 

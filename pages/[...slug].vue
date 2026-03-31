@@ -107,7 +107,7 @@ useHead({
       <!-- Note header -->
       <header class="mb-8 pb-6 border-b border-vault-border">
         <h1 class="text-3xl font-bold text-vault-text mb-2">{{ note.title }}</h1>
-        <p class="text-xs text-vault-muted">
+        <p v-if="note.showDate !== false" class="text-xs text-vault-muted">
           Created {{ new Date(note.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }}
           &nbsp;·&nbsp;
           Last updated {{ new Date(note.updatedAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }}

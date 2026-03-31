@@ -29,6 +29,7 @@ export default defineEventHandler(async (event) => {
     createdAt: note.createdAt,
     updatedAt: note.updatedAt,
     sortOrder: note.sortOrder,
+    showDate: note.showDate,
     content: await content.text(),
   }
 })

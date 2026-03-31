@@ -6,25 +6,27 @@
  * Usage:
  *   1. Start the dev server: npm run dev
  *   2. Place your .md files in ./vault/ (any folder depth)
- *   3. Run: node migrate.mjs
+ *   3. Run: ADMIN_PASSWORD=yourpassword node migrate.mjs
  *
  * Options (env vars):
- *   BASE_URL   - default: http://localhost:3000
- *   VAULT_DIR  - default: ./vault
+ *   BASE_URL        - default: http://localhost:3001
+ *   VAULT_DIR       - default: ./vault
+ *   ADMIN_PASSWORD  - required: your admin password
  */
 
 import fs from 'fs'
 import path from 'path'
 import { globby } from 'globby'
 
-const BASE_URL = process.env.BASE_URL || 'http://localhost:3000'
-const VAULT_DIR = process.env.VAULT_DIR || './vault'
+const BASE_URL = process.env.BASE_URL || 'http://localhost:3001'
+const VAULT_DIR = process.env.VAULT_DIR || './vault/Cogitations Website'
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || ''
 
 function fileToSlug(filePath, vaultDir) {
   const relative = path.relative(vaultDir, filePath)
   return relative
     .replace(/\.md$/, '')
-    .replace(/\\/g, '/')        // Windows compat
+    .replace(/\\/g, '/')
     .toLowerCase()
     .replace(/[^a-z0-9\/\-]/g, '-')
     .replace(/-+/g, '-')
@@ -45,14 +47,51 @@ function extractTitle(content, filename) {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+async function login() {
+  if (!ADMIN_PASSWORD) {
+    console.error('Error: ADMIN_PASSWORD env var is required.')
+    console.error('Usage: ADMIN_PASSWORD=yourpassword node migrate.mjs')
+    process.exit(1)
+  }
+
+  const res = await fetch(`${BASE_URL}/api/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ password: ADMIN_PASSWORD }),
+  })
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => '')
+    console.error(`Login failed (${res.status}): ${body}`)
+    process.exit(1)
+  }
+
+  const setCookie = res.headers.get('set-cookie')
+  if (!setCookie) {
+    console.error('Login succeeded but no cookie was returned.')
+    process.exit(1)
+  }
+
+  // Extract just the name=value part (before the first semicolon)
+  const cookie = setCookie.split(';')[0]
+  console.log('✓ Logged in\n')
+  return cookie
+}
+
 async function migrate() {
   if (!fs.existsSync(VAULT_DIR)) {
     console.error(`Vault directory not found: ${VAULT_DIR}`)
     process.exit(1)
   }
 
-  const files = await globby(`${VAULT_DIR}/**/*.md`)
-  console.log(`Found ${files.length} Markdown files in ${VAULT_DIR}`)
+  const cookie = await login()
+  const files = await globby(`${VAULT_DIR}/**/*.md`, {
+    ignore: [
+      `${VAULT_DIR}/images/**`,
+      `${VAULT_DIR}/Attachments/**`,
+    ],
+  })
+  console.log(`Found ${files.length} Markdown files in ${VAULT_DIR}\n`)
 
   let ok = 0
   let fail = 0
@@ -69,8 +108,7 @@ async function migrate() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Bypass auth check in development by spoofing the CF Access header
-          'cf-access-authenticated-user-email': 'migrate@local',
+          'Cookie': cookie,
         },
         body: JSON.stringify({ title, slug, parent_path: parentPath, content, is_published: true }),
       })

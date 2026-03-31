@@ -10,6 +10,7 @@ export const notes = sqliteTable('notes', {
   r2Key: text('r2_key').notNull(),
   sortOrder: integer('sort_order'),  // nullable; lower numbers sort first
   isPublished: integer('is_published', { mode: 'boolean' }).notNull().default(true),
+  showDate: integer('show_date', { mode: 'boolean' }).notNull().default(true),
   createdAt: text('created_at').notNull().default(sql`CURRENT_TIMESTAMP`),
   updatedAt: text('updated_at').notNull().default(sql`CURRENT_TIMESTAMP`),
 })

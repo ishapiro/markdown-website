@@ -10,7 +10,7 @@ import fs from 'fs'
 import path from 'path'
 import { globby } from 'globby'
 
-const VAULT_DIR = './vault2/Cogitations Website'
+const VAULT_DIR = './vault/Cogitations Website'
 const BLOB_DIR = './.data/blob'
 const IMAGE_DIRS = ['images', 'Attachments']
 
