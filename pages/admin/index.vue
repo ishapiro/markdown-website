@@ -598,9 +598,13 @@ watch(showImagePanel, (open) => {
           <!-- View link styled as ghost button -->
           <NuxtLink
             v-if="editSlug"
-            :to="`/${editSlug}`"
+            :to="isPublished ? `/${editSlug}` : '/home'"
             target="_blank"
-            class="inline-flex items-center gap-1 text-xs text-vault-muted hover:text-vault-accent border border-vault-border hover:border-vault-accent rounded-md px-3 py-1.5 transition-colors font-medium"
+            class="inline-flex items-center gap-1 text-xs border rounded-md px-3 py-1.5 transition-colors font-medium"
+            :class="isPublished
+              ? 'text-vault-muted hover:text-vault-accent border-vault-border hover:border-vault-accent'
+              : 'text-vault-faint border-vault-border cursor-not-allowed opacity-50'"
+            :title="isPublished ? undefined : 'Page is unpublished — opening home instead'"
           >
             View <span class="opacity-60 text-[10px]">↗</span>
           </NuxtLink>
