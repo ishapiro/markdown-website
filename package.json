@@ -13,7 +13,13 @@
     "db:backup": "node backup-db.mjs",
     "db:restore": "node restore-db.mjs",
     "db:restore:list": "node restore-db.mjs --list",
+    "push:cloudflare": "node push-to-cloudflare.mjs",
+    "backup:cloudflare": "node backup-cloudflare.mjs",
+    "backup:cloudflare:list": "node backup-cloudflare.mjs --list",
+    "restore:cloudflare": "node restore-to-cloudflare.mjs",
+    "restore:cloudflare:list": "node restore-to-cloudflare.mjs --list",
     "db:studio": "drizzle-kit studio",
+    "db:studio:remote": "DRIZZLE_REMOTE_D1=1 drizzle-kit studio",
     "migrate": "node migrate.mjs"
   },
   "dependencies": {
