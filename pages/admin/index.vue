@@ -21,6 +21,33 @@ const saving = ref(false)
 const saveStatus = ref<'idle' | 'saved' | 'error'>('idle')
 const errorMsg = ref('')
 const sidebarRefresh = ref(0)
+
+// ── Sidebar resize ───────────────────────────────────────────────────────────
+const SIDEBAR_MIN = 160
+const SIDEBAR_MAX = 480
+const sidebarWidth = ref(
+  process.client ? (parseInt(localStorage.getItem('adminSidebarWidth') ?? '320', 10) || 320) : 320,
+)
+const isResizing = ref(false)
+
+function onResizeStart(e: MouseEvent) {
+  isResizing.value = true
+  const startX = e.clientX
+  const startWidth = sidebarWidth.value
+
+  function onMove(ev: MouseEvent) {
+    const next = Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, startWidth + ev.clientX - startX))
+    sidebarWidth.value = next
+  }
+  function onUp() {
+    isResizing.value = false
+    localStorage.setItem('adminSidebarWidth', String(sidebarWidth.value))
+    window.removeEventListener('mousemove', onMove)
+    window.removeEventListener('mouseup', onUp)
+  }
+  window.addEventListener('mousemove', onMove)
+  window.addEventListener('mouseup', onUp)
+}
 // ── Site configuration ───────────────────────────────────────────────────────
 interface AdminSiteConfig {
   siteTitle: string; siteTagline: string; siteLogoKey: string
@@ -451,6 +478,7 @@ const showImagePanel = ref(false)
 type ImageTab = 'upload' | 'ai' | 'unsplash'
 const imageTab = ref<ImageTab>('upload')
 const imageWidthPct = ref<number | null>(null)
+const imageCentered = ref(false)
 
 // Upload tab
 const imageFileInput = ref<HTMLInputElement | null>(null)
@@ -529,8 +557,12 @@ async function handleImageFile(event: Event) {
 
 function buildImageMarkdown(url: string, alt: string): string {
   const altText = alt.trim() || 'image'
-  if (imageWidthPct.value !== null && imageWidthPct.value > 0 && imageWidthPct.value < 100) {
-    return `<img src="${url}" alt="${altText}" style="width: ${imageWidthPct.value}%; display: block; margin: 0 auto;" />`
+  const hasWidth = imageWidthPct.value !== null && imageWidthPct.value > 0 && imageWidthPct.value < 100
+  if (hasWidth || imageCentered.value) {
+    const styles: string[] = []
+    if (hasWidth) styles.push(`width: ${imageWidthPct.value}%`)
+    if (imageCentered.value) styles.push('display: block', 'margin: 0 auto')
+    return `<img src="${url}" alt="${altText}" style="${styles.join('; ')}" />`
   }
   return `![${altText}](${url})`
 }
@@ -644,6 +676,7 @@ watch(showImagePanel, (open) => {
     unsplashError.value = ''
     unsplashSaveError.value = ''
     imageWidthPct.value = null
+    imageCentered.value = false
     aiImagePrompt.value = ''
     aiImageRefinePrompt.value = ''
     aiImageHistory.value = []
@@ -653,7 +686,7 @@ watch(showImagePanel, (open) => {
 })
 
 // ── AI image generation ───────────────────────────────────────────────────────
-interface AiImageItem { prompt: string; url: string; mimeType: string; rawData: string }
+interface AiImageItem { prompt: string; url: string; mimeType: string; rawData: string; modelParts: unknown[] }
 const aiImagePrompt = ref('')
 const aiImageRefinePrompt = ref('')
 const aiImageGenerating = ref(false)
@@ -668,11 +701,11 @@ async function generateAiImage() {
   aiImageGenerating.value = true
   aiImageError.value = ''
   try {
-    const result = await $fetch<{ url: string; mimeType: string; data: string }>(
+    const result = await $fetch<{ url: string; mimeType: string; data: string; modelParts: unknown[] }>(
       '/api/admin/generate-image',
       { method: 'POST', body: { prompt: aiImagePrompt.value.trim() } },
     )
-    aiImageHistory.value.push({ prompt: aiImagePrompt.value.trim(), url: result.url, mimeType: result.mimeType, rawData: result.data })
+    aiImageHistory.value.push({ prompt: aiImagePrompt.value.trim(), url: result.url, mimeType: result.mimeType, rawData: result.data, modelParts: result.modelParts })
     if (!aiImageAlt.value) aiImageAlt.value = aiImagePrompt.value.trim().slice(0, 80)
   } catch (e: unknown) {
     aiImageError.value = (e as { data?: { message?: string } })?.data?.message ?? 'Image generation failed'
@@ -687,18 +720,18 @@ async function refineAiImage() {
   aiImageError.value = ''
   const prev = aiImageCurrent.value
   try {
-    const result = await $fetch<{ url: string; mimeType: string; data: string }>(
+    const result = await $fetch<{ url: string; mimeType: string; data: string; modelParts: unknown[] }>(
       '/api/admin/generate-image',
       {
         method: 'POST',
         body: {
           prompt: aiImageRefinePrompt.value.trim(),
           previousPrompt: prev.prompt,
-          previousImage: { mimeType: prev.mimeType, data: prev.rawData },
+          previousModelParts: prev.modelParts,
         },
       },
     )
-    aiImageHistory.value.push({ prompt: aiImageRefinePrompt.value.trim(), url: result.url, mimeType: result.mimeType, rawData: result.data })
+    aiImageHistory.value.push({ prompt: aiImageRefinePrompt.value.trim(), url: result.url, mimeType: result.mimeType, rawData: result.data, modelParts: result.modelParts })
     aiImageRefinePrompt.value = ''
   } catch (e: unknown) {
     aiImageError.value = (e as { data?: { message?: string } })?.data?.message ?? 'Refinement failed'
@@ -737,6 +770,10 @@ const vimeoStatus = ref('')
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 let vimeoPlayer: any = null
 
+// Shared video display options
+const videoWidthPct = ref<number | null>(null)
+const videoCentered = ref(false)
+
 // YouTube state
 const youtubeRef = ref('')
 const youtubeId = ref('')
@@ -752,6 +789,8 @@ function toggleVimeoPanel() {
 watch(showVimeoPanel, (open) => {
   if (!open) {
     videoPlatform.value = 'vimeo'
+    videoWidthPct.value = null
+    videoCentered.value = false
     vimeoPlayer?.destroy()
     vimeoPlayer = null
     vimeoRef.value = ''
@@ -816,6 +855,13 @@ async function resolveVimeo() {
 function setStartFromPlayer() { vimeoStartSeconds.value = Math.floor(vimeoCurrentTime.value) }
 function setEndFromPlayer() { vimeoEndSeconds.value = Math.floor(vimeoCurrentTime.value) }
 
+function buildVideoHtml(iframeSrc: string, allow: string): string {
+  const styles: string[] = ['aspect-ratio: 16/9']
+  styles.push(videoWidthPct.value ? `width: ${videoWidthPct.value}%` : 'width: 100%')
+  if (videoCentered.value) styles.push('display: block', 'margin: 0 auto')
+  return `<div style="${styles.join('; ')}"><iframe src="${iframeSrc}" style="width: 100%; height: 100%;" frameborder="0" allow="${allow}" allowfullscreen></iframe></div>`
+}
+
 function insertVimeoToken() {
   if (!vimeoId.value) return
   const id = vimeoId.value
@@ -824,7 +870,11 @@ function insertVimeoToken() {
   const end = vimeoEndSeconds.value
 
   let token: string
-  if (start !== null || end !== null) {
+  if (videoWidthPct.value !== null || videoCentered.value) {
+    let iframeSrc = hash ? `https://player.vimeo.com/video/${id}?h=${hash}` : `https://player.vimeo.com/video/${id}`
+    if (start !== null) iframeSrc += (iframeSrc.includes('?') ? '&' : '?') + `#t=${start}s`
+    token = buildVideoHtml(iframeSrc, 'autoplay; fullscreen; picture-in-picture')
+  } else if (start !== null || end !== null) {
     token = `{{vimeo:${id}:${hash}:${start ?? ''}:${end ?? ''}}}`
   } else if (hash) {
     token = `{{vimeo:${id}:${hash}}}`
@@ -870,7 +920,13 @@ function insertYoutubeToken() {
   const end = youtubeEndSeconds.value
 
   let token: string
-  if (start !== null || end !== null) {
+  if (videoWidthPct.value !== null || videoCentered.value) {
+    const params: string[] = []
+    if (start !== null) params.push(`start=${start}`)
+    if (end !== null) params.push(`end=${end}`)
+    const iframeSrc = `https://www.youtube.com/embed/${id}${params.length ? '?' + params.join('&') : ''}`
+    token = buildVideoHtml(iframeSrc, 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture')
+  } else if (start !== null || end !== null) {
     token = `{{youtube:${id}:${start ?? ''}:${end ?? ''}}}`
   } else {
     token = `{{youtube:${id}}}`
@@ -886,13 +942,147 @@ function insertYoutubeToken() {
   externalCursorPos.value = before.length + prefix.length + token.length
   showVimeoPanel.value = false
 }
+
+// ── Properties panel (edit width/center on selected image or video) ───────────
+const showPropertiesPanel = ref(false)
+type PropsTarget = 'image' | 'vimeo-token' | 'youtube-token' | 'video-html'
+const propsTarget = ref<PropsTarget | null>(null)
+const propsWidthPct = ref<number | null>(null)
+const propsCentered = ref(false)
+// Preserved raw parsed values needed to reconstruct the token
+const propsPayload = ref<Record<string, string>>({})
+
+function detectSelectionType(text: string): PropsTarget | null {
+  if (!text) return null
+  if (/^<div[^>]*style[^>]*>[\s\S]*<iframe/.test(text)) return 'video-html'
+  if (/^\{\{\s*vimeo:/.test(text)) return 'vimeo-token'
+  if (/^\{\{\s*youtube:/.test(text)) return 'youtube-token'
+  if (/^<img\s/.test(text) || /^!\[/.test(text)) return 'image'
+  return null
+}
+
+function openPropertiesPanel() {
+  const text = selectedText.value?.trim() ?? ''
+  const type = detectSelectionType(text)
+  if (!type) return
+  propsTarget.value = type
+  propsPayload.value = {}
+
+  if (type === 'image') {
+    if (/^<img\s/.test(text)) {
+      const w = text.match(/width:\s*(\d+)%/)
+      propsWidthPct.value = w ? Number(w[1]) : null
+      propsCentered.value = /margin:\s*0\s*auto/.test(text)
+      const src = text.match(/src="([^"]*)"/)
+      const alt = text.match(/alt="([^"]*)"/)
+      propsPayload.value = { src: src?.[1] ?? '', alt: alt?.[1] ?? '', type: 'html' }
+    } else {
+      const m = text.match(/^!\[([^\]]*)\]\(([^)]+)\)$/)
+      propsWidthPct.value = null
+      propsCentered.value = false
+      propsPayload.value = { src: m?.[2] ?? '', alt: m?.[1] ?? '', type: 'md' }
+    }
+  } else if (type === 'vimeo-token') {
+    propsWidthPct.value = null
+    propsCentered.value = false
+    const m = text.match(/\{\{\s*vimeo:(\d{6,})(?::([a-zA-Z0-9]*))?(?::(\d*))?(?::(\d+))?\s*\}\}/)
+    propsPayload.value = { id: m?.[1] ?? '', hash: m?.[2] ?? '', start: m?.[3] ?? '', end: m?.[4] ?? '' }
+  } else if (type === 'youtube-token') {
+    propsWidthPct.value = null
+    propsCentered.value = false
+    const m = text.match(/\{\{\s*youtube:([a-zA-Z0-9_-]{11})(?::(\d*))?(?::(\d+))?\s*\}\}/)
+    propsPayload.value = { id: m?.[1] ?? '', start: m?.[2] ?? '', end: m?.[3] ?? '' }
+  } else if (type === 'video-html') {
+    const w = text.match(/width:\s*(\d+)%/)
+    propsWidthPct.value = w ? Number(w[1]) : null
+    propsCentered.value = /margin:\s*0\s*auto/.test(text)
+    const src = text.match(/<iframe[^>]+src="([^"]*)"/)
+    const isVimeo = /vimeo\.com/.test(text)
+    propsPayload.value = { src: src?.[1] ?? '', platform: isVimeo ? 'vimeo' : 'youtube' }
+  }
+
+  showPropertiesPanel.value = true
+  showImagePanel.value = false
+  showVimeoPanel.value = false
+}
+
+function applyProperties() {
+  if (!propsTarget.value || !selectionMeta.value) return
+  const p = propsPayload.value
+  const hasWidth = propsWidthPct.value !== null
+  const centered = propsCentered.value
+  let newToken = ''
+
+  if (propsTarget.value === 'image') {
+    const { src, alt } = p
+    if (hasWidth || centered) {
+      const styles: string[] = []
+      if (hasWidth) styles.push(`width: ${propsWidthPct.value}%`)
+      if (centered) styles.push('display: block', 'margin: 0 auto')
+      newToken = `<img src="${src}" alt="${alt}" style="${styles.join('; ')}" />`
+    } else {
+      newToken = `![${alt}](${src})`
+    }
+  } else if (propsTarget.value === 'vimeo-token') {
+    const { id, hash, start, end } = p
+    if (hasWidth || centered) {
+      let iframeSrc = hash ? `https://player.vimeo.com/video/${id}?h=${hash}` : `https://player.vimeo.com/video/${id}`
+      if (start) iframeSrc += (iframeSrc.includes('?') ? '&' : '?') + `#t=${start}s`
+      const styles = buildVideoStyleString()
+      newToken = `<div style="${styles}"><iframe src="${iframeSrc}" style="width: 100%; height: 100%;" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>`
+    } else if (start || end) {
+      newToken = `{{vimeo:${id}:${hash}:${start}:${end}}}`
+    } else if (hash) {
+      newToken = `{{vimeo:${id}:${hash}}}`
+    } else {
+      newToken = `{{vimeo:${id}}}`
+    }
+  } else if (propsTarget.value === 'youtube-token') {
+    const { id, start, end } = p
+    if (hasWidth || centered) {
+      const params: string[] = []
+      if (start) params.push(`start=${start}`)
+      if (end) params.push(`end=${end}`)
+      const iframeSrc = `https://www.youtube.com/embed/${id}${params.length ? '?' + params.join('&') : ''}`
+      const styles = buildVideoStyleString()
+      newToken = `<div style="${styles}"><iframe src="${iframeSrc}" style="width: 100%; height: 100%;" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`
+    } else if (start || end) {
+      newToken = `{{youtube:${id}:${start}:${end}}}`
+    } else {
+      newToken = `{{youtube:${id}}}`
+    }
+  } else if (propsTarget.value === 'video-html') {
+    const allow = p.platform === 'vimeo' ? 'autoplay; fullscreen; picture-in-picture' : 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture'
+    const styles = buildVideoStyleString()
+    newToken = `<div style="${styles}"><iframe src="${p.src}" style="width: 100%; height: 100%;" frameborder="0" allow="${allow}" allowfullscreen></iframe></div>`
+  }
+
+  if (!newToken) return
+  const current = content.value ?? ''
+  const { from, to } = selectionMeta.value
+  content.value = current.slice(0, from) + newToken + current.slice(to)
+  externalCursorPos.value = from + newToken.length
+  showPropertiesPanel.value = false
+}
+
+function buildVideoStyleString(): string {
+  const styles = ['aspect-ratio: 16/9']
+  styles.push(propsWidthPct.value ? `width: ${propsWidthPct.value}%` : 'width: 100%')
+  if (propsCentered.value) styles.push('display: block', 'margin: 0 auto')
+  return styles.join('; ')
+}
+
+const selectionIsEditable = computed(() => !!detectSelectionType(selectedText.value?.trim() ?? ''))
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-3rem)] overflow-hidden">
+  <div class="flex h-[calc(100vh-3rem)] overflow-hidden" :class="{ 'select-none': isResizing }">
 
     <!-- ── Note list sidebar ──────────────────────────────────────────────── -->
-    <aside class="w-64 shrink-0 flex flex-col border-r border-vault-border bg-vault-sidebar">
+    <aside
+      class="shrink-0 flex flex-col bg-vault-sidebar"
+      :style="{ width: sidebarWidth + 'px' }"
+    >
 
       <!-- New note button -->
       <div class="p-3 border-b border-vault-border shrink-0">
@@ -917,6 +1107,13 @@ function insertYoutubeToken() {
         />
       </div>
     </aside>
+
+    <!-- ── Sidebar resize handle ─────────────────────────────────────────── -->
+    <div
+      class="w-1 shrink-0 cursor-col-resize hover:bg-vault-accent/40 active:bg-vault-accent/60 border-r border-vault-border transition-colors"
+      :class="{ 'bg-vault-accent/40': isResizing }"
+      @mousedown.prevent="onResizeStart"
+    />
 
     <!-- ── Editor area ────────────────────────────────────────────────────── -->
     <div class="flex-1 flex flex-col overflow-hidden min-w-0">
@@ -943,7 +1140,7 @@ function insertYoutubeToken() {
           v-model="title"
           type="text"
           placeholder="Note title…"
-          class="flex-1 bg-transparent text-sm font-semibold text-vault-text placeholder:text-vault-muted outline-none min-w-0"
+          class="flex-1 bg-transparent text-sm font-semibold text-vault-text placeholder:text-vault-muted outline-none min-w-0 border-b border-transparent hover:border-vault-border focus:border-vault-accent transition-colors"
         />
 
         <!-- Actions group -->
@@ -1114,6 +1311,21 @@ function insertYoutubeToken() {
           Video
         </button>
 
+        <!-- Properties (edit selected image/video) -->
+        <button
+          class="text-xs px-2.5 py-1 rounded-md border font-medium transition-colors"
+          :class="showPropertiesPanel
+            ? 'border-vault-accent/40 bg-vault-accent/10 text-vault-accent'
+            : selectionIsEditable
+              ? 'border-vault-border text-vault-muted hover:bg-vault-surface'
+              : 'border-vault-border text-vault-faint opacity-40 cursor-not-allowed'"
+          :disabled="!selectionIsEditable"
+          :title="selectionIsEditable ? 'Edit width/center of selected image or video' : 'Select an image or video to edit its properties'"
+          @click="openPropertiesPanel"
+        >
+          Properties
+        </button>
+
         <!-- Grammar & Style -->
         <button
           class="text-xs px-2.5 py-1 rounded-md border font-medium transition-colors"
@@ -1145,39 +1357,25 @@ function insertYoutubeToken() {
       <!-- Image panel (collapsible) -->
       <div
         v-if="showImagePanel"
-        class="shrink-0 border-b border-vault-border bg-vault-sidebar/20 p-3 space-y-3 max-h-80 overflow-y-auto"
+        class="shrink-0 border-b border-vault-border bg-vault-sidebar/20 p-3 space-y-3"
       >
-        <!-- Tabs + shared width control -->
-        <div class="flex items-center justify-between">
-          <div class="flex gap-1 rounded border border-vault-border overflow-hidden">
-            <button
-              class="px-3 py-1 text-xs font-medium transition-colors"
-              :class="imageTab === 'upload' ? 'bg-vault-accent text-white' : 'text-vault-muted hover:bg-vault-surface'"
-              @click="imageTab = 'upload'"
-            >Upload</button>
-            <button
-              class="px-3 py-1 text-xs font-medium transition-colors border-l border-vault-border"
-              :class="imageTab === 'ai' ? 'bg-vault-accent text-white' : 'text-vault-muted hover:bg-vault-surface'"
-              @click="imageTab = 'ai'"
-            >AI</button>
-            <button
-              class="px-3 py-1 text-xs font-medium transition-colors border-l border-vault-border"
-              :class="imageTab === 'unsplash' ? 'bg-vault-accent text-white' : 'text-vault-muted hover:bg-vault-surface'"
-              @click="imageTab = 'unsplash'"
-            >Unsplash</button>
-          </div>
-          <label class="flex items-center gap-1.5 text-xs text-vault-muted">
-            Width %:
-            <input
-              v-model.number="imageWidthPct"
-              type="number"
-              min="10"
-              max="99"
-              placeholder="100%"
-              class="w-20 rounded border border-vault-border bg-vault-bg px-2 py-0.5 text-xs outline-none"
-            />
-            <button v-if="imageWidthPct !== null" class="text-vault-faint hover:text-vault-muted" @click="imageWidthPct = null">✕</button>
-          </label>
+        <!-- Tabs -->
+        <div class="flex gap-1 rounded border border-vault-border overflow-hidden w-fit">
+          <button
+            class="px-3 py-1 text-xs font-medium transition-colors"
+            :class="imageTab === 'upload' ? 'bg-vault-accent text-white' : 'text-vault-muted hover:bg-vault-surface'"
+            @click="imageTab = 'upload'"
+          >Upload</button>
+          <button
+            class="px-3 py-1 text-xs font-medium transition-colors border-l border-vault-border"
+            :class="imageTab === 'ai' ? 'bg-vault-accent text-white' : 'text-vault-muted hover:bg-vault-surface'"
+            @click="imageTab = 'ai'"
+          >AI</button>
+          <button
+            class="px-3 py-1 text-xs font-medium transition-colors border-l border-vault-border"
+            :class="imageTab === 'unsplash' ? 'bg-vault-accent text-white' : 'text-vault-muted hover:bg-vault-surface'"
+            @click="imageTab = 'unsplash'"
+          >Unsplash</button>
         </div>
 
         <!-- Upload tab -->
@@ -1207,13 +1405,22 @@ function insertYoutubeToken() {
                   class="flex-1 rounded border border-vault-border bg-vault-bg px-2 py-0.5 text-xs outline-none min-w-0"
                 />
               </label>
-              <button
-                class="text-xs px-3 py-1.5 rounded border border-vault-border bg-vault-bg text-vault-muted hover:bg-vault-surface disabled:opacity-40 self-start"
-                :disabled="uploading || !uploadedUrl"
-                @click="insertImage(uploadedUrl, uploadAlt)"
-              >
-                Insert image
-              </button>
+              <div class="flex items-center gap-3 flex-wrap">
+                <button
+                  class="text-xs px-3 py-1.5 rounded border border-vault-border bg-vault-bg text-vault-muted hover:bg-vault-surface disabled:opacity-40"
+                  :disabled="uploading || !uploadedUrl"
+                  @click="insertImage(uploadedUrl, uploadAlt)"
+                >Insert image</button>
+                <label class="flex items-center gap-1 text-xs text-vault-muted">
+                  Width %:
+                  <input v-model.number="imageWidthPct" type="number" min="10" max="99" placeholder="100%" class="w-16 rounded border border-vault-border bg-vault-bg px-1.5 py-0.5 text-xs outline-none ml-1" />
+                  <button v-if="imageWidthPct !== null" class="text-vault-faint hover:text-vault-muted ml-0.5" @click="imageWidthPct = null">✕</button>
+                </label>
+                <label class="flex items-center gap-1 text-xs text-vault-muted cursor-pointer select-none">
+                  <input v-model="imageCentered" type="checkbox" class="accent-vault-accent w-3 h-3" />
+                  Center
+                </label>
+              </div>
             </div>
           </div>
         </template>
@@ -1273,35 +1480,42 @@ function insertYoutubeToken() {
                     class="flex-1 rounded border border-vault-border bg-vault-bg px-2 py-0.5 text-xs outline-none"
                   />
                 </label>
-                <!-- Insert button -->
-                <button
-                  class="text-xs px-3 py-1 rounded border border-vault-border bg-vault-bg text-vault-muted hover:bg-vault-surface"
-                  @click="aiImageCurrent && insertImage(aiImageCurrent.url, aiImageAlt)"
-                >
-                  Insert image
-                </button>
+                <!-- Insert button + display options -->
+                <div class="flex items-center gap-3 flex-wrap">
+                  <button
+                    class="text-xs px-3 py-1 rounded border border-vault-border bg-vault-bg text-vault-muted hover:bg-vault-surface"
+                    @click="aiImageCurrent && insertImage(aiImageCurrent.url, aiImageAlt)"
+                  >Insert image</button>
+                  <label class="flex items-center gap-1 text-xs text-vault-muted">
+                    Width %:
+                    <input v-model.number="imageWidthPct" type="number" min="10" max="99" placeholder="100%" class="w-16 rounded border border-vault-border bg-vault-bg px-1.5 py-0.5 text-xs outline-none ml-1" />
+                    <button v-if="imageWidthPct !== null" class="text-vault-faint hover:text-vault-muted ml-0.5" @click="imageWidthPct = null">✕</button>
+                  </label>
+                  <label class="flex items-center gap-1 text-xs text-vault-muted cursor-pointer select-none">
+                    <input v-model="imageCentered" type="checkbox" class="accent-vault-accent w-3 h-3" />
+                    Center
+                  </label>
+                </div>
               </div>
             </div>
             <!-- Refinement -->
-            <div class="flex gap-2">
-              <input
-                v-model="aiImageRefinePrompt"
-                type="text"
-                placeholder="Describe changes to refine…"
-                class="flex-1 rounded border border-vault-border bg-vault-bg px-2 py-1 text-xs outline-none"
-                :disabled="aiImageGenerating"
-                @keydown.enter.prevent="refineAiImage"
-              />
+            <input
+              v-model="aiImageRefinePrompt"
+              type="text"
+              placeholder="Describe changes to refine…"
+              class="w-full rounded border border-vault-border bg-vault-bg px-2 py-1 text-xs outline-none"
+              :disabled="aiImageGenerating"
+              @keydown.enter.prevent="refineAiImage"
+            />
+            <div class="flex items-center gap-3">
               <button
                 class="text-xs px-3 py-1 rounded border border-vault-border bg-vault-bg text-vault-muted hover:bg-vault-surface disabled:opacity-40"
                 :disabled="aiImageGenerating || !aiImageRefinePrompt.trim()"
                 @click="refineAiImage"
-              >
-                {{ aiImageGenerating ? 'Refining…' : 'Refine' }}
-              </button>
+              >{{ aiImageGenerating ? 'Refining…' : 'Refine' }}</button>
+              <button class="text-xs text-vault-faint hover:text-vault-muted" @click="resetAiImage">Start over</button>
             </div>
             <p v-if="aiImageError" class="text-xs text-red-500">{{ aiImageError }}</p>
-            <button class="text-xs text-vault-faint hover:text-vault-muted" @click="resetAiImage">Start over</button>
           </template>
         </template>
 
@@ -1326,7 +1540,7 @@ function insertYoutubeToken() {
           </div>
           <p v-if="unsplashError" class="text-xs text-red-500">{{ unsplashError }}</p>
 
-          <div v-if="unsplashResults.length" class="max-h-24 overflow-y-auto">
+          <div v-if="unsplashResults.length">
             <div class="grid grid-cols-6 gap-1.5">
               <button
                 v-for="photo in unsplashResults"
@@ -1355,13 +1569,22 @@ function insertYoutubeToken() {
                   placeholder="Alt text…"
                   class="w-full rounded border border-vault-border bg-vault-surface px-2 py-0.5 text-xs outline-none"
                 />
-                <button
-                  class="text-xs px-3 py-1 rounded border border-vault-border bg-vault-bg text-vault-muted hover:bg-vault-surface disabled:opacity-40"
-                  :disabled="unsplashSaving"
-                  @click="saveUnsplashImage"
-                >
-                  {{ unsplashSaving ? 'Saving…' : 'Insert image' }}
-                </button>
+                <div class="flex items-center gap-3 flex-wrap">
+                  <button
+                    class="text-xs px-3 py-1 rounded border border-vault-border bg-vault-bg text-vault-muted hover:bg-vault-surface disabled:opacity-40"
+                    :disabled="unsplashSaving"
+                    @click="saveUnsplashImage"
+                  >{{ unsplashSaving ? 'Saving…' : 'Insert image' }}</button>
+                  <label class="flex items-center gap-1 text-xs text-vault-muted">
+                    Width %:
+                    <input v-model.number="imageWidthPct" type="number" min="10" max="99" placeholder="100%" class="w-16 rounded border border-vault-border bg-vault-bg px-1.5 py-0.5 text-xs outline-none ml-1" />
+                    <button v-if="imageWidthPct !== null" class="text-vault-faint hover:text-vault-muted ml-0.5" @click="imageWidthPct = null">✕</button>
+                  </label>
+                  <label class="flex items-center gap-1 text-xs text-vault-muted cursor-pointer select-none">
+                    <input v-model="imageCentered" type="checkbox" class="accent-vault-accent w-3 h-3" />
+                    Center
+                  </label>
+                </div>
                 <p v-if="unsplashSaveError" class="text-xs text-red-500">{{ unsplashSaveError }}</p>
               </div>
             </div>
@@ -1374,18 +1597,36 @@ function insertYoutubeToken() {
         v-if="showVimeoPanel"
         class="shrink-0 border-b border-vault-border bg-vault-sidebar/20 p-3 space-y-3 max-h-96 overflow-y-auto"
       >
-        <!-- Platform selector -->
-        <div class="flex gap-1 rounded border border-vault-border overflow-hidden w-fit">
-          <button
-            class="px-3 py-1 text-xs font-medium transition-colors"
-            :class="videoPlatform === 'vimeo' ? 'bg-vault-accent text-white' : 'text-vault-muted hover:bg-vault-surface'"
-            @click="videoPlatform = 'vimeo'"
-          >Vimeo</button>
-          <button
-            class="px-3 py-1 text-xs font-medium transition-colors border-l border-vault-border"
-            :class="videoPlatform === 'youtube' ? 'bg-vault-accent text-white' : 'text-vault-muted hover:bg-vault-surface'"
-            @click="videoPlatform = 'youtube'"
-          >YouTube</button>
+        <!-- Platform selector + display options -->
+        <div class="flex items-center gap-4 flex-wrap">
+          <div class="flex gap-1 rounded border border-vault-border overflow-hidden">
+            <button
+              class="px-3 py-1 text-xs font-medium transition-colors"
+              :class="videoPlatform === 'vimeo' ? 'bg-vault-accent text-white' : 'text-vault-muted hover:bg-vault-surface'"
+              @click="videoPlatform = 'vimeo'"
+            >Vimeo</button>
+            <button
+              class="px-3 py-1 text-xs font-medium transition-colors border-l border-vault-border"
+              :class="videoPlatform === 'youtube' ? 'bg-vault-accent text-white' : 'text-vault-muted hover:bg-vault-surface'"
+              @click="videoPlatform = 'youtube'"
+            >YouTube</button>
+          </div>
+          <label class="flex items-center gap-1.5 text-xs text-vault-muted">
+            Width %:
+            <input
+              v-model.number="videoWidthPct"
+              type="number"
+              min="10"
+              max="99"
+              placeholder="100%"
+              class="w-20 rounded border border-vault-border bg-vault-bg px-2 py-0.5 text-xs outline-none"
+            />
+            <button v-if="videoWidthPct !== null" class="text-vault-faint hover:text-vault-muted" @click="videoWidthPct = null">✕</button>
+          </label>
+          <label class="flex items-center gap-1.5 text-xs text-vault-muted cursor-pointer select-none">
+            <input v-model="videoCentered" type="checkbox" class="accent-vault-accent w-3 h-3" />
+            Center
+          </label>
         </div>
 
         <!-- ── Vimeo ── -->
@@ -1424,7 +1665,7 @@ function insertYoutubeToken() {
             <div class="flex flex-col gap-2 text-xs">
               <p class="text-vault-muted">Current: {{ formatSeconds(vimeoCurrentTime) }}</p>
               <div class="flex flex-wrap gap-2 items-center">
-                <label class="flex items-center gap-1 text-vault-muted">
+                <label class="flex items-center gap-1 text-xs text-vault-muted">
                   Start (s):
                   <input
                     type="number"
@@ -1438,7 +1679,7 @@ function insertYoutubeToken() {
                 <button v-if="vimeoStartSeconds !== null" class="text-vault-faint hover:text-vault-muted" @click="vimeoStartSeconds = null">✕</button>
               </div>
               <div class="flex flex-wrap gap-2 items-center">
-                <label class="flex items-center gap-1 text-vault-muted">
+                <label class="flex items-center gap-1 text-xs text-vault-muted">
                   End (s):
                   <input
                     type="number"
@@ -1498,7 +1739,7 @@ function insertYoutubeToken() {
             <!-- Controls -->
             <div class="flex flex-col gap-2 text-xs">
               <div class="flex flex-wrap gap-2 items-center">
-                <label class="flex items-center gap-1 text-vault-muted">
+                <label class="flex items-center gap-1 text-xs text-vault-muted">
                   Start (s):
                   <input
                     type="number"
@@ -1511,7 +1752,7 @@ function insertYoutubeToken() {
                 <button v-if="youtubeStartSeconds !== null" class="text-vault-faint hover:text-vault-muted" @click="youtubeStartSeconds = null">✕</button>
               </div>
               <div class="flex flex-wrap gap-2 items-center">
-                <label class="flex items-center gap-1 text-vault-muted">
+                <label class="flex items-center gap-1 text-xs text-vault-muted">
                   End (s):
                   <input
                     type="number"
@@ -1533,6 +1774,40 @@ function insertYoutubeToken() {
             </div>
           </div>
         </template>
+      </div>
+
+      <!-- Properties panel -->
+      <div
+        v-if="showPropertiesPanel"
+        class="shrink-0 border-b border-vault-border bg-vault-sidebar/20 p-3 flex items-center gap-4 flex-wrap"
+      >
+        <span class="text-xs text-vault-muted font-medium shrink-0">
+          {{ propsTarget === 'image' ? 'Image' : propsTarget === 'vimeo-token' ? 'Vimeo video' : propsTarget === 'youtube-token' ? 'YouTube video' : 'Video' }} properties
+        </span>
+        <label class="flex items-center gap-1 text-xs text-vault-muted">
+          Width %:
+          <input
+            v-model.number="propsWidthPct"
+            type="number"
+            min="10"
+            max="99"
+            placeholder="100%"
+            class="w-16 rounded border border-vault-border bg-vault-bg px-1.5 py-0.5 text-xs outline-none ml-1"
+          />
+          <button v-if="propsWidthPct !== null" class="text-vault-faint hover:text-vault-muted ml-0.5" @click="propsWidthPct = null">✕</button>
+        </label>
+        <label class="flex items-center gap-1 text-xs text-vault-muted cursor-pointer select-none">
+          <input v-model="propsCentered" type="checkbox" class="accent-vault-accent w-3 h-3" />
+          Center
+        </label>
+        <button
+          class="text-xs px-3 py-1.5 rounded border border-vault-accent bg-vault-accent/10 text-vault-accent hover:bg-vault-accent/20 font-medium"
+          @click="applyProperties"
+        >Update</button>
+        <button
+          class="text-xs text-vault-faint hover:text-vault-muted"
+          @click="showPropertiesPanel = false"
+        >Cancel</button>
       </div>
 
       <!-- ── Split pane ─────────────────────────────────────────────────── -->

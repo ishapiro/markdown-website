@@ -26,6 +26,38 @@ const { data: notes, refresh } = await useFetch<NoteRow[]>('/api/admin/list')
 const search = ref('')
 const deleting = ref<string | null>(null)
 
+// Inline sort-order editing
+const editingOrderSlug = ref<string | null>(null)
+const editingOrderValue = ref<string>('')
+
+function startEditOrder(node: TreeNode, event: MouseEvent) {
+  event.stopPropagation()
+  editingOrderSlug.value = node.slug
+  editingOrderValue.value = node.sortOrder !== null ? String(node.sortOrder) : ''
+  nextTick(() => {
+    const input = document.getElementById(`order-input-${node.slug}`)
+    if (input) (input as HTMLInputElement).select()
+  })
+}
+
+async function commitEditOrder(node: TreeNode) {
+  if (editingOrderSlug.value !== node.slug) return
+  editingOrderSlug.value = null
+  const raw = editingOrderValue.value.trim()
+  const newOrder = raw === '' ? null : parseInt(raw, 10)
+  if (newOrder === node.sortOrder || (raw !== '' && isNaN(newOrder!))) return
+  node.sortOrder = newOrder
+  await $fetch(`/api/admin/notes/${node.slug}`, {
+    method: 'PATCH',
+    body: { sort_order: newOrder },
+  }).catch(() => null)
+  await refresh()
+}
+
+function cancelEditOrder() {
+  editingOrderSlug.value = null
+}
+
 // New folder form state
 const showNewFolder = ref(false)
 const newFolderName = ref('')
@@ -269,7 +301,7 @@ async function deleteFolder(node: TreeNode) {
     </div>
 
     <!-- Tree list -->
-    <div class="flex-1 overflow-y-auto">
+    <div class="flex-1 overflow-y-auto pb-8">
       <ul class="space-y-0">
         <li
           v-for="{ node, depth } in flatList"
@@ -311,6 +343,26 @@ async function deleteFolder(node: TreeNode) {
               <span v-else-if="node.slug === currentSlug" class="mr-0.5">●</span>
               {{ node.title }}
             </button>
+            <!-- Sort order badge / inline editor -->
+            <template v-if="editingOrderSlug === node.slug">
+              <input
+                :id="`order-input-${node.slug}`"
+                v-model="editingOrderValue"
+                type="number"
+                class="w-12 shrink-0 rounded border border-vault-accent bg-vault-bg px-1 py-0.5 text-[10px] text-vault-text outline-none text-right"
+                @keydown.enter.prevent="commitEditOrder(node)"
+                @keydown.escape.prevent="cancelEditOrder"
+                @blur="commitEditOrder(node)"
+                @click.stop
+              />
+            </template>
+            <template v-else>
+              <span
+                class="shrink-0 text-[10px] text-vault-faint hover:text-vault-accent px-1 cursor-pointer tabular-nums"
+                :title="`Sort order: ${node.sortOrder ?? 'none'} — click to edit`"
+                @click.stop="startEditOrder(node, $event)"
+              >{{ node.sortOrder ?? '—' }}</span>
+            </template>
             <button
               class="opacity-0 group-hover:opacity-100 shrink-0 text-vault-faint hover:text-red-400 px-1 text-xs"
               title="Unpublish"

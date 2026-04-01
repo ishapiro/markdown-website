@@ -31,7 +31,7 @@ export default defineEventHandler(async (event) => {
   const body = await readBody<{
     prompt: string
     previousPrompt?: string
-    previousImage?: { mimeType: string; data: string }
+    previousModelParts?: unknown[]
   }>(event)
 
   if (!body?.prompt?.trim()) {
@@ -40,15 +40,15 @@ export default defineEventHandler(async (event) => {
 
   const prompt = body.prompt.trim()
   const previousPrompt = body.previousPrompt?.trim() ?? null
-  const previousImage = body.previousImage ?? null
+  const previousModelParts = body.previousModelParts ?? null
 
   const modelName = await resolveImageGenModel(apiKey)
   const url = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`
 
-  const contents = previousImage
+  const contents = previousModelParts
     ? [
         { role: 'user', parts: [{ text: previousPrompt || 'generate an image' }] },
-        { role: 'model', parts: [{ inlineData: { mimeType: previousImage.mimeType, data: previousImage.data } }] },
+        { role: 'model', parts: previousModelParts },
         { role: 'user', parts: [{ text: prompt }] },
       ]
     : [{ role: 'user', parts: [{ text: prompt }] }]
@@ -98,7 +98,8 @@ export default defineEventHandler(async (event) => {
     url: `/api/images/${key}`,
     key,
     mimeType,
-    // Raw base64 returned so client can pass it back for iterative refinement without re-fetching from R2
     data: rawData,
+    // Full model parts (including thought signatures) must be passed back on refinement
+    modelParts: parts,
   }
 })
