@@ -90,12 +90,40 @@ function parseWikiLinks(src: string, titleMap: Map<string, string>, suffixMap: M
   })
 }
 
+function parseVimeoTokens(src: string): string {
+  return src.replace(
+    /\{\{\s*vimeo:(\d{6,})(?::([a-zA-Z0-9]*))?(?::(\d+))?(?::(\d+))?\s*\}\}/g,
+    (_m, id, hash, startStr) => {
+      let iframeSrc = hash
+        ? `https://player.vimeo.com/video/${id}?h=${hash}`
+        : `https://player.vimeo.com/video/${id}`
+      if (startStr) iframeSrc += `#t=${startStr}s`
+      return `<div class="my-6 aspect-video w-full"><iframe src="${iframeSrc}" class="h-full w-full rounded-lg" frameborder="0" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div>`
+    },
+  )
+}
+
+function parseYoutubeTokens(src: string): string {
+  return src.replace(
+    /\{\{\s*youtube:([a-zA-Z0-9_-]{11})(?::(\d*))?(?::(\d+))?\s*\}\}/g,
+    (_m, id, startStr, endStr) => {
+      const params: string[] = []
+      if (startStr) params.push(`start=${startStr}`)
+      if (endStr) params.push(`end=${endStr}`)
+      const iframeSrc = `https://www.youtube.com/embed/${id}${params.length ? '?' + params.join('&') : ''}`
+      return `<div class="my-6 aspect-video w-full"><iframe src="${iframeSrc}" class="h-full w-full rounded-lg" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe></div>`
+    },
+  )
+}
+
 const renderedContent = computed(() => {
   if (!note.value?.content) return ''
   const withImages = parseObsidianImages(note.value.content)
   const { titleMap, suffixMap } = wikiLinkMap.value
   const withWikiLinks = parseWikiLinks(withImages, titleMap, suffixMap)
-  return marked.parse(withWikiLinks) as string
+  const withVimeo = parseVimeoTokens(withWikiLinks)
+  const withYoutube = parseYoutubeTokens(withVimeo)
+  return marked.parse(withYoutube) as string
 })
 
 const readingStats = computed(() => {
