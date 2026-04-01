@@ -9,8 +9,8 @@
         Return to Blog
       </NuxtLink>
 
-      <!-- Primary nav -->
-      <nav class="ml-6 flex items-center gap-1">
+      <!-- Primary nav (hidden on login / access-denied) -->
+      <nav v-if="!isAuthPage" class="ml-6 flex items-center gap-1">
         <NuxtLink
           to="/admin"
           class="px-3 py-1.5 rounded text-xs font-medium transition-colors text-vault-muted hover:text-vault-text hover:bg-vault-surface"
@@ -19,24 +19,28 @@
         >
           Content
         </NuxtLink>
-        <NuxtLink
-          to="/admin/users"
-          class="px-3 py-1.5 rounded text-xs font-medium transition-colors text-vault-muted hover:text-vault-text hover:bg-vault-surface"
-          active-class="bg-vault-surface text-vault-text"
+        <button
+          class="px-3 py-1.5 rounded text-xs font-medium transition-colors"
+          :class="route.path.startsWith('/admin/users')
+            ? 'bg-vault-surface text-vault-text'
+            : 'text-vault-muted hover:text-vault-text hover:bg-vault-surface'"
+          @click="adminOnly('Users', () => navigateTo('/admin/users'))"
         >
           Users
-        </NuxtLink>
-        <NuxtLink
-          to="/admin/analytics"
-          class="px-3 py-1.5 rounded text-xs font-medium transition-colors text-vault-muted hover:text-vault-text hover:bg-vault-surface"
-          active-class="bg-vault-surface text-vault-text"
+        </button>
+        <button
+          class="px-3 py-1.5 rounded text-xs font-medium transition-colors"
+          :class="route.path.startsWith('/admin/analytics')
+            ? 'bg-vault-surface text-vault-text'
+            : 'text-vault-muted hover:text-vault-text hover:bg-vault-surface'"
+          @click="adminOnly('Analytics', () => navigateTo('/admin/analytics'))"
         >
           Analytics
-        </NuxtLink>
+        </button>
       </nav>
 
-      <!-- Right actions -->
-      <div class="ml-auto flex items-center gap-2">
+      <!-- Right actions (hidden on login / access-denied) -->
+      <div v-if="!isAuthPage" class="ml-auto flex items-center gap-2">
         <!-- Rebuild Index -->
         <button
           class="px-3 py-1.5 rounded text-xs font-medium transition-colors text-vault-muted hover:text-vault-text hover:bg-vault-surface disabled:opacity-50"
@@ -51,7 +55,7 @@
         <!-- Site Settings -->
         <button
           class="px-3 py-1.5 rounded text-xs font-medium transition-colors text-vault-muted hover:text-vault-text hover:bg-vault-surface"
-          @click="showConfigPanel = true"
+          @click="adminOnly('Site Settings', openSettings)"
         >
           Site Settings
         </button>
@@ -68,14 +72,73 @@
 
     </header>
     <slot />
+
+    <!-- Unauthorized access modal -->
+    <div
+      v-if="showUnauthorized"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      @click.self="showUnauthorized = false"
+    >
+      <div class="bg-vault-sidebar border border-vault-border rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <h2 class="text-base font-semibold text-vault-text mb-1">Admin Access Required</h2>
+        <p class="text-sm text-vault-muted mb-4">
+          <strong class="text-vault-text">{{ unauthorizedFeature }}</strong> is restricted to administrators.
+          Your current role is <strong class="text-vault-text">Author</strong>, which allows you to create
+          and edit content but not manage users, analytics, or site settings.
+        </p>
+        <p class="text-xs text-vault-faint mb-5">
+          To gain access, ask a site administrator to update your role to Admin.
+        </p>
+        <div class="flex justify-end">
+          <button
+            class="px-4 py-2 rounded-md bg-vault-accent text-white text-sm font-medium hover:bg-vault-accent-hover transition-colors"
+            @click="showUnauthorized = false"
+          >
+            OK
+          </button>
+        </div>
+      </div>
+    </div>
+
   </div>
 </template>
 
 <script setup lang="ts">
 const siteConfig = useSiteConfig()
+const route = useRoute()
+const isAuthPage = computed(() =>
+  route.path === '/admin/login' || route.path === '/admin/access-denied'
+)
 
 // Shared state — the Content page (index.vue) reads showConfigPanel to open its settings modal
 const showConfigPanel = useState('adminShowConfigPanel', () => false)
+
+// Fetch current session to determine role (non-blocking; password login has no session → defaults to admin)
+const { data: sessionData } = useFetch<{ user: { role: string; name: string } | null }>('/api/auth/session', {
+  key: 'admin-layout-session',
+})
+const isAuthor = computed(() => sessionData.value?.user?.role === 'author')
+
+// Unauthorized modal
+const showUnauthorized = ref(false)
+const unauthorizedFeature = ref('')
+
+function adminOnly(featureName: string, action: () => void) {
+  if (isAuthor.value) {
+    unauthorizedFeature.value = featureName
+    showUnauthorized.value = true
+  } else {
+    action()
+  }
+}
+
+function openSettings() {
+  if (route.path === '/admin') {
+    showConfigPanel.value = true
+  } else {
+    navigateTo('/admin?settings=1')
+  }
+}
 
 const reindexing = ref(false)
 const reindexStatus = ref<'idle' | 'done' | 'error'>('idle')

@@ -31,6 +31,12 @@ interface AdminSiteConfig {
 }
 // Shared with admin layout — layout's "Site Settings" button sets this to true
 const showConfigPanel = useState('adminShowConfigPanel', () => false)
+
+// Open settings panel when navigated here with ?settings=1 from another admin page
+if (route.query.settings) {
+  showConfigPanel.value = true
+  router.replace({ query: editSlug.value ? { edit: editSlug.value } : {} })
+}
 const configForm = ref<AdminSiteConfig | null>(null)
 const configSaving = ref(false)
 const configSaveStatus = ref<'idle' | 'saved' | 'error'>('idle')
