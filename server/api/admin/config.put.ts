@@ -20,6 +20,7 @@ const ConfigSchema = z.object({
   robotsMeta: z.enum(['index,follow', 'noindex,nofollow', 'noindex,follow', 'index,nofollow']),
   analyticsId: z.string().max(100),
   unsplashAttributionSource: z.string().max(100),
+  homePage: z.string().min(1).max(255).startsWith('/'),
 })
 
 export default defineEventHandler(async (event) => {

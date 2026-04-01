@@ -1,26 +1,50 @@
 import { computeAdminToken } from '~/server/utils/adminAuth'
+import { getSessionCookie, verifySession } from '~/server/utils/session'
+
+// Routes only admins may access (authors are excluded)
+const ADMIN_ONLY_PREFIXES = [
+  '/api/admin/users',
+  '/api/admin/analytics',
+]
 
 // Protects all /api/admin/* routes (except /api/admin/login).
-// Validates the httpOnly admin-token cookie set on login.
+// Accepts:
+//   1. Legacy HMAC admin-token cookie (password login) — always grants full admin access
+//   2. JWT mw_session cookie with role='admin' — full access
+//   3. JWT mw_session cookie with role='author' — content routes only (not users/analytics)
 export default defineEventHandler(async (event) => {
   const path = getRequestPath(event)
   if (!path.startsWith('/api/admin')) return
-  if (path === '/api/admin/login') return   // login endpoint is always public
+  if (path === '/api/admin/login') return  // always public
 
   const config = useRuntimeConfig(event)
-  const adminPassword = config.adminPassword as string
 
-  if (!adminPassword) {
-    throw createError({ statusCode: 503, message: 'Admin password not configured — add NUXT_ADMIN_PASSWORD to .dev.vars' })
+  // Path 1: HMAC cookie (password login — always admin)
+  const hmacToken = getCookie(event, 'admin-token')
+  if (hmacToken) {
+    const adminPassword = config.adminPassword as string
+    if (adminPassword) {
+      const expected = await computeAdminToken(adminPassword)
+      if (hmacToken === expected) return
+    }
   }
 
-  const token = getCookie(event, 'admin-token')
-  if (!token) {
-    throw createError({ statusCode: 401, message: 'Not authenticated' })
+  // Path 2: JWT session cookie
+  const { sessionSecret, sessionCookieName } = config
+  if (sessionSecret) {
+    const jwtToken = getSessionCookie(event, sessionCookieName)
+    if (jwtToken) {
+      const payload = await verifySession(jwtToken, sessionSecret)
+      if (payload?.role === 'admin') return
+
+      // Authors can access content routes but not user management or analytics
+      if (payload?.role === 'author') {
+        const isAdminOnly = ADMIN_ONLY_PREFIXES.some(prefix => path.startsWith(prefix))
+        if (!isAdminOnly) return
+        throw createError({ statusCode: 403, message: 'Admin access required' })
+      }
+    }
   }
 
-  const expected = await computeAdminToken(adminPassword)
-  if (token !== expected) {
-    throw createError({ statusCode: 401, message: 'Invalid session' })
-  }
+  throw createError({ statusCode: 401, message: 'Not authenticated' })
 })

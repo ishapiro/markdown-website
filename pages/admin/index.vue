@@ -21,19 +21,16 @@ const saving = ref(false)
 const saveStatus = ref<'idle' | 'saved' | 'error'>('idle')
 const errorMsg = ref('')
 const sidebarRefresh = ref(0)
-const reindexing = ref(false)
-const reindexStatus = ref<'idle' | 'done' | 'error'>('idle')
-const reindexMsg = ref('')
-
 // ── Site configuration ───────────────────────────────────────────────────────
 interface AdminSiteConfig {
   siteTitle: string; siteTagline: string; siteLogoKey: string
   copyrightNotice: string; authorName: string; authorEmail: string
   twitterUrl: string; githubUrl: string; linkedinUrl: string; mastodonUrl: string
   ogImageUrl: string; faviconUrl: string; robotsMeta: string
-  analyticsId: string; unsplashAttributionSource: string
+  analyticsId: string; unsplashAttributionSource: string; homePage: string
 }
-const showConfigPanel = ref(false)
+// Shared with admin layout — layout's "Site Settings" button sets this to true
+const showConfigPanel = useState('adminShowConfigPanel', () => false)
 const configForm = ref<AdminSiteConfig | null>(null)
 const configSaving = ref(false)
 const configSaveStatus = ref<'idle' | 'saved' | 'error'>('idle')
@@ -67,7 +64,7 @@ async function saveConfig() {
       copyrightNotice: fresh.copyrightNotice, authorName: fresh.authorName,
       twitterUrl: fresh.twitterUrl, githubUrl: fresh.githubUrl, linkedinUrl: fresh.linkedinUrl,
       mastodonUrl: fresh.mastodonUrl, ogImageUrl: fresh.ogImageUrl, faviconUrl: fresh.faviconUrl,
-      robotsMeta: fresh.robotsMeta,
+      robotsMeta: fresh.robotsMeta, homePage: fresh.homePage,
     }
     setTimeout(() => { configSaveStatus.value = 'idle' }, 3000)
   } catch (e: unknown) {
@@ -105,20 +102,6 @@ function removeLogo() {
   logoPreviewUrl.value = ''
 }
 
-async function reindex() {
-  reindexing.value = true
-  reindexStatus.value = 'idle'
-  try {
-    const result = await $fetch<{ reindexed: number }>('/api/admin/reindex', { method: 'POST' })
-    reindexMsg.value = `✓ Reindexed ${result.reindexed} notes`
-    reindexStatus.value = 'done'
-  } catch {
-    reindexMsg.value = 'Reindex failed'
-    reindexStatus.value = 'error'
-  } finally {
-    reindexing.value = false
-  }
-}
 
 const isNewNote = computed(() => !editSlug.value)
 
@@ -719,30 +702,9 @@ watch(showImagePanel, (open) => {
 
           <div class="w-px h-4 bg-vault-border shrink-0" />
 
-          <!-- Reindex Search -->
-          <button
-            class="text-xs px-3 py-1.5 rounded border border-vault-border text-vault-muted hover:bg-vault-surface transition-colors disabled:opacity-50 shrink-0"
-            :disabled="reindexing"
-            @click="reindex"
-          >
-            {{ reindexing ? 'Reindexing…' : 'Reindex' }}
-          </button>
-          <span v-if="reindexStatus === 'done'" class="text-xs text-green-600 shrink-0">{{ reindexMsg }}</span>
-          <span v-if="reindexStatus === 'error'" class="text-xs text-red-500 shrink-0">{{ reindexMsg }}</span>
-
-          <!-- Site Config -->
-          <button
-            class="text-xs px-3 py-1.5 rounded border border-vault-border text-vault-muted hover:bg-vault-surface transition-colors shrink-0"
-            @click="showConfigPanel = true"
-          >
-            Site Config
-          </button>
-
-          <div class="w-px h-4 bg-vault-border shrink-0" />
-
           <!-- Save status + button -->
-          <span v-if="saveStatus === 'saved'" class="text-xs text-green-600 shrink-0">✓ Saved</span>
-          <span v-if="saveStatus === 'error'" class="text-xs text-red-500 shrink-0">✗ {{ errorMsg }}</span>
+          <span v-if="saveStatus === 'saved'" class="text-xs text-green-600 shrink-0">Saved</span>
+          <span v-if="saveStatus === 'error'" class="text-xs text-red-500 shrink-0">{{ errorMsg }}</span>
           <button
             class="text-xs px-5 py-1.5 rounded-md font-semibold transition-colors shadow-sm shrink-0"
             :class="saving
@@ -862,7 +824,7 @@ watch(showImagePanel, (open) => {
           Image
         </button>
 
-        <!-- Reformat / grammar -->
+        <!-- Grammar & Style -->
         <button
           class="text-xs px-2.5 py-1 rounded-md border font-medium transition-colors"
           :class="aiAsking
@@ -872,7 +834,7 @@ watch(showImagePanel, (open) => {
           title="Fix spelling, grammar, and formatting with AI"
           @click="reformatAndGrammar"
         >
-          {{ aiAsking && rightPane === 'ai' ? 'Checking…' : 'Reformat / Grammar' }}
+          {{ aiAsking && rightPane === 'ai' ? 'Checking…' : 'Grammar & Style' }}
         </button>
 
         <!-- Right-pane segmented control (pushed to end) -->
@@ -1228,6 +1190,11 @@ watch(showImagePanel, (open) => {
               <label class="flex flex-col gap-1 text-xs col-span-2">
                 <span class="text-vault-faint font-medium">Tagline / Description</span>
                 <input v-model="configForm.siteTagline" type="text" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" placeholder="A personal knowledge base" />
+              </label>
+              <label class="flex flex-col gap-1 text-xs col-span-2">
+                <span class="text-vault-faint font-medium">Home Page</span>
+                <input v-model="configForm.homePage" type="text" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" placeholder="/home" />
+                <span class="text-vault-faint text-[10px]">Path of the note to use as the site home page (e.g. /home or /welcome)</span>
               </label>
               <label class="flex flex-col gap-1 text-xs">
                 <span class="text-vault-faint font-medium">Author Name</span>

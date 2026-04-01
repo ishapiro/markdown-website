@@ -11,6 +11,7 @@ export interface PublicSiteConfig {
   ogImageUrl: string
   faviconUrl: string
   robotsMeta: string
+  homePage: string
 }
 
 const DEFAULT_CONFIG: PublicSiteConfig = {
@@ -26,6 +27,7 @@ const DEFAULT_CONFIG: PublicSiteConfig = {
   ogImageUrl: '',
   faviconUrl: '',
   robotsMeta: 'index,follow',
+  homePage: '/home',
 }
 
 export function useSiteConfig() {

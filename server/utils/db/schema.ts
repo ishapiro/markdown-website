@@ -46,7 +46,40 @@ export const siteConfig = sqliteTable('site_config', {
   robotsMeta: text('robots_meta').notNull().default('index,follow'),
   analyticsId: text('analytics_id').notNull().default(''),
   unsplashAttributionSource: text('unsplash_attribution_source').notNull().default(''),
+  homePage: text('home_page').notNull().default('/home'),
 })
 
 export type SiteConfig = typeof siteConfig.$inferSelect
 export type SiteConfigUpdate = Omit<typeof siteConfig.$inferInsert, 'id'>
+
+export const users = sqliteTable('users', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  email: text('email').notNull().unique(),
+  name: text('name'),
+  googleSub: text('google_sub').unique(),
+  role: text('role', { enum: ['user', 'author', 'admin'] }).notNull().default('user'),
+  about: text('about'),
+  avatarUrl: text('avatar_url'),
+  createdAt: integer('created_at', { mode: 'timestamp' }).notNull(),
+  lastLoginAt: integer('last_login_at', { mode: 'timestamp' }),
+})
+
+export type User = typeof users.$inferSelect
+export type NewUser = typeof users.$inferInsert
+
+export const pageVisits = sqliteTable('page_visits', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  userId: integer('user_id').references(() => users.id),
+  visitorId: text('visitor_id'),
+  path: text('path').notNull(),
+  startedAt: integer('started_at', { mode: 'timestamp' }).notNull(),
+  durationSeconds: integer('duration_seconds'),
+  referrer: text('referrer'),
+  utmSource: text('utm_source'),
+  utmMedium: text('utm_medium'),
+  utmCampaign: text('utm_campaign'),
+  country: text('country'),
+  city: text('city'),
+})
+
+export type PageVisit = typeof pageVisits.$inferSelect

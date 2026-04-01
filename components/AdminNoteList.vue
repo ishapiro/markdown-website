@@ -130,6 +130,10 @@ function buildTree(rows: NoteRow[]): TreeNode[] {
         const bOrder = b.sortOrder ?? 9999
         return aOrder - bOrder
       }
+      // Both folders: sort by min child sortOrder (null → 9999), then title
+      const aChildOrder = a.children.find(c => c.sortOrder !== null)?.sortOrder ?? 9999
+      const bChildOrder = b.children.find(c => c.sortOrder !== null)?.sortOrder ?? 9999
+      if (aChildOrder !== bChildOrder) return aChildOrder - bChildOrder
       return a.title.localeCompare(b.title)
     })
   }

@@ -1,4 +1,26 @@
 # Copy this to .dev.vars (never commit .dev.vars)
-# Used by Wrangler / NuxtHub for local development
+# Used by Wrangler for local development
 
-ADMIN_EMAIL=you@example.com
+# Admin password (emergency recovery access)
+NUXT_ADMIN_PASSWORD=changeme
+
+# Google Gemini API key for AI features
+NUXT_SYSTEM_GEMINI_KEY=
+
+# Unsplash API key for image search
+NUXT_UNSPLASH_ACCESS_KEY=
+
+# Google OAuth — from https://console.cloud.google.com/apis/credentials
+# Authorised redirect URI (local): http://localhost:3001/api/auth/callback
+# Authorised redirect URI (prod):  https://blog.cogitations.com/api/auth/callback
+#                                  https://cogitations.com/api/auth/callback
+NUXT_GOOGLE_CLIENT_ID=
+NUXT_GOOGLE_CLIENT_SECRET=
+
+# JWT session secret — generate with: openssl rand -base64 32
+NUXT_SESSION_SECRET=
+
+# Override the OAuth redirect origin when a proxy hides the real host.
+# Leave empty — the real domain is auto-detected from the incoming request.
+# Set only if you hit a redirect_uri_mismatch error (e.g. when using a tunnel).
+NUXT_OAUTH_REDIRECT_ORIGIN=

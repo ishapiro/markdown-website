@@ -4,7 +4,7 @@ import { siteConfig } from '~/server/utils/db/schema'
 const PUBLIC_FIELDS = [
   'siteTitle', 'siteTagline', 'siteLogoKey', 'copyrightNotice', 'authorName',
   'twitterUrl', 'githubUrl', 'linkedinUrl', 'mastodonUrl',
-  'ogImageUrl', 'faviconUrl', 'robotsMeta',
+  'ogImageUrl', 'faviconUrl', 'robotsMeta', 'homePage',
 ] as const
 
 export default defineEventHandler(async (event) => {

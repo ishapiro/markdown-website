@@ -6,9 +6,15 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    adminPassword: '',   // set via NUXT_ADMIN_PASSWORD in .dev.vars / Cloudflare secret
-    systemGeminiKey: '',     // set via NUXT_SYSTEM_GEMINI_KEY in .dev.vars / Cloudflare secret
-    unsplashAccessKey: '',   // set via NUXT_UNSPLASH_ACCESS_KEY in .dev.vars / Cloudflare secret
+    adminPassword: '',        // NUXT_ADMIN_PASSWORD
+    systemGeminiKey: '',      // NUXT_SYSTEM_GEMINI_KEY
+    unsplashAccessKey: '',    // NUXT_UNSPLASH_ACCESS_KEY
+    googleClientId: '',       // NUXT_GOOGLE_CLIENT_ID
+    googleClientSecret: '',   // NUXT_GOOGLE_CLIENT_SECRET
+    sessionSecret: '',        // NUXT_SESSION_SECRET (openssl rand -base64 32)
+    sessionCookieName: 'mw_session',
+    sessionMaxAge: 60 * 60 * 24 * 7, // 7 days
+    oauthRedirectOrigin: '',  // NUXT_OAUTH_REDIRECT_ORIGIN (leave empty — auto-detected)
     public: {},
   },
 
