@@ -52,6 +52,17 @@
         <span v-if="reindexStatus === 'done'" class="text-xs text-green-600 shrink-0">{{ reindexMsg }}</span>
         <span v-if="reindexStatus === 'error'" class="text-xs text-red-500 shrink-0">{{ reindexMsg }}</span>
 
+        <!-- Normalize Slugs -->
+        <button
+          class="px-3 py-1.5 rounded text-xs font-medium transition-colors text-vault-muted hover:text-vault-text hover:bg-vault-surface disabled:opacity-50"
+          :disabled="normalizingSlugs"
+          @click="normalizeSlugs"
+        >
+          {{ normalizingSlugs ? 'Normalizing…' : 'Normalize Slugs' }}
+        </button>
+        <span v-if="normalizeStatus === 'done'" class="text-xs text-green-600 shrink-0">{{ normalizeMsg }}</span>
+        <span v-if="normalizeStatus === 'error'" class="text-xs text-red-500 shrink-0">{{ normalizeMsg }}</span>
+
         <!-- Site Settings -->
         <button
           class="px-3 py-1.5 rounded text-xs font-medium transition-colors text-vault-muted hover:text-vault-text hover:bg-vault-surface"
@@ -157,6 +168,27 @@ async function reindex() {
     reindexStatus.value = 'error'
   } finally {
     reindexing.value = false
+  }
+}
+
+const normalizingSlugs = ref(false)
+const normalizeStatus = ref<'idle' | 'done' | 'error'>('idle')
+const normalizeMsg = ref('')
+
+async function normalizeSlugs() {
+  normalizingSlugs.value = true
+  normalizeStatus.value = 'idle'
+  try {
+    const result = await $fetch<{ normalized: number; skipped: string[] }>('/api/admin/normalize-slugs', { method: 'POST' })
+    const skipNote = result.skipped.length ? `, ${result.skipped.length} skipped` : ''
+    normalizeMsg.value = `Normalized ${result.normalized} slugs${skipNote}`
+    normalizeStatus.value = 'done'
+    setTimeout(() => { normalizeStatus.value = 'idle' }, 5000)
+  } catch {
+    normalizeMsg.value = 'Normalize failed'
+    normalizeStatus.value = 'error'
+  } finally {
+    normalizingSlugs.value = false
   }
 }
 

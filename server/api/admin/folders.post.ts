@@ -6,7 +6,7 @@ import { notes } from '~/server/utils/db/schema'
 
 const FolderSchema = z.object({
   name: z.string().min(1).max(255),
-  slug: z.string().min(1).max(500).regex(/^[a-z0-9\-\/]+$/, 'Slug must be lowercase alphanumeric with hyphens/slashes'),
+  slug: z.string().min(1).max(500).regex(/^[a-z0-9\s\-\/]+$/, 'Slug must be lowercase alphanumeric with hyphens/slashes'),
   parentPath: z.string().default('/'),
 })
 
@@ -18,7 +18,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: parsed.error.message })
   }
 
-  const { name, slug, parentPath } = parsed.data
+  function normalizeSlugPath(raw: string): string {
+    return raw
+      .split('/')
+      .map((seg) => seg.replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''))
+      .filter(Boolean)
+      .join('/')
+  }
+
+  const slug = normalizeSlugPath(parsed.data.slug)
+  const { name } = parsed.data
+  const rawParent = parsed.data.parentPath
+  const parentPath = rawParent === '/' ? '/' : '/' + normalizeSlugPath(rawParent.replace(/^\//, ''))
   const db = useDb(event)
 
   const existing = await db

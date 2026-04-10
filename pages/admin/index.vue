@@ -194,7 +194,7 @@ async function save() {
   saveStatus.value = 'idle'
   errorMsg.value = ''
   try {
-    await $fetch('/api/admin/notes', {
+    const result = await $fetch<{ ok: boolean; slug: string }>('/api/admin/notes', {
       method: 'POST',
       body: {
         title: title.value,
@@ -207,9 +207,10 @@ async function save() {
         sort_order: sortOrder.value,
       },
     })
+    slug.value = result.slug
     saveStatus.value = 'saved'
-    editSlug.value = slug.value
-    router.replace({ query: { edit: slug.value } })
+    editSlug.value = result.slug
+    router.replace({ query: { edit: result.slug } })
     sidebarRefresh.value++
     refreshFolderPaths()
     setTimeout(() => { saveStatus.value = 'idle' }, 3000)

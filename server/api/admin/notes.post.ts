@@ -7,7 +7,7 @@ import { useR2 } from '~/server/utils/r2'
 
 const NoteSchema = z.object({
   title: z.string().min(1).max(255),
-  slug: z.string().min(1).max(500).regex(/^[a-z0-9\-\/]+$/, 'Slug must be lowercase alphanumeric with hyphens/slashes'),
+  slug: z.string().min(1).max(500).regex(/^[a-z0-9\s\-\/]+$/, 'Slug must be lowercase alphanumeric with hyphens/slashes'),
   parent_path: z.string().default('/'),
   content: z.string(),
   is_published: z.boolean().default(true),
@@ -24,7 +24,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, message: parsed.error.message })
   }
 
-  const { title, slug, parent_path, content, is_published, show_date, created_at, sort_order } = parsed.data
+  function normalizeSlugPath(raw: string): string {
+    return raw
+      .split('/')
+      .map((seg) => seg.replace(/\s+/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, ''))
+      .filter(Boolean)
+      .join('/')
+  }
+
+  const slug = normalizeSlugPath(parsed.data.slug)
+  const { title, content, is_published, show_date, created_at, sort_order } = parsed.data
+  const rawParent = parsed.data.parent_path
+  const parent_path = rawParent === '/' ? '/' : '/' + normalizeSlugPath(rawParent.replace(/^\//, ''))
   const r2Key = `notes/${slug}.md`
   const cleaned = content.replace(/#+\s/g, '').replace(/\n/g, ' ')
   const contentPreview = cleaned.length > 21000
