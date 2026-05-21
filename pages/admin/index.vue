@@ -266,6 +266,7 @@ const splitStyle = computed(() => {
 // ── Right pane (preview / AI) ─────────────────────────────────────────────────
 type RightPane = 'preview' | 'ai'
 const rightPane = ref<RightPane>('preview')
+const previewEl = ref<HTMLElement | null>(null)
 
 // ── Preview ──────────────────────────────────────────────────────────────────
 // Nav tree for WikiLink resolution
@@ -300,10 +301,53 @@ renderer.link = (href: string, title: string | null | undefined, text: string) =
 marked.use({ renderer })
 
 function parseObsidianImages(src: string): string {
-  return src.replace(/!\[\[(.*?)(?:\|(.*?))?\]\]/g, (_, imgPath, alt) => {
+  return src.replace(/!\[\[(.*?)(?:\|(.*?))?\]\]/g, (match, imgPath, alt) => {
     const filename = imgPath.split('/').pop() ?? imgPath
-    return `![${alt?.trim() || ''}](/api/images/images/${filename})`
+    const altText = (alt?.trim() ?? '').replace(/"/g, '&quot;')
+    // Encode [ and ] so parseWikiLinks doesn't process [[...]] inside this attribute
+    const ref = match.replace(/"/g, '&quot;').replace(/\[/g, '&#91;').replace(/]/g, '&#93;')
+    return `<img src="/api/images/images/${filename}" alt="${altText}" data-obsidian-ref="${ref}">`
   })
+}
+
+function removeObsidianRef(ref: string) {
+  const idx = content.value.indexOf(ref)
+  if (idx === -1) return
+  content.value = content.value.slice(0, idx) + content.value.slice(idx + ref.length).replace(/^\n/, '')
+}
+
+function replaceImgWithPlaceholder(img: HTMLImageElement) {
+  const ref = img.dataset.obsidianRef ?? ''
+  const filename = img.src.split('/').pop() ?? img.src
+  const div = document.createElement('div')
+  div.className = 'not-prose my-2 flex items-start gap-2 rounded border border-red-200 bg-red-50 p-2.5 text-sm'
+  div.innerHTML = `
+    <span class="shrink-0 text-red-400">⚠</span>
+    <div class="flex-1 min-w-0">
+      <p class="m-0 font-medium text-red-700 text-xs">Image not found</p>
+      <p class="m-0 text-red-400 text-[11px] break-all">${filename}</p>
+    </div>
+    <button class="shrink-0 text-[11px] px-2 py-0.5 rounded border border-red-300 text-red-600 hover:bg-red-100 whitespace-nowrap"
+            data-remove-ref="${ref.replace(/"/g, '&quot;')}">Remove</button>
+  `
+  img.replaceWith(div)
+}
+
+function setupPreviewImages() {
+  if (!previewEl.value) return
+  previewEl.value.querySelectorAll<HTMLImageElement>('img[data-obsidian-ref]').forEach((img) => {
+    if (img.complete && img.naturalWidth === 0) {
+      replaceImgWithPlaceholder(img)
+    } else if (!img.complete) {
+      img.addEventListener('error', () => replaceImgWithPlaceholder(img), { once: true })
+    }
+  })
+}
+
+function onPreviewClick(e: MouseEvent) {
+  const btn = (e.target as HTMLElement).closest<HTMLElement>('[data-remove-ref]')
+  if (!btn?.dataset.removeRef) return
+  removeObsidianRef(btn.dataset.removeRef)
 }
 
 function parseWikiLinks(src: string, titleMap: Map<string, string>, suffixMap: Map<string, string>): string {
@@ -350,6 +394,18 @@ const previewHtml = computed(() => {
   const withVimeo = parseVimeoTokens(withWikiLinks)
   const withYoutube = parseYoutubeTokens(withVimeo)
   return marked.parse(withYoutube) as string
+})
+
+watch(previewHtml, async () => {
+  if (rightPane.value !== 'preview') return
+  await nextTick()
+  setupPreviewImages()
+})
+
+watch(rightPane, async (pane) => {
+  if (pane !== 'preview') return
+  await nextTick()
+  setupPreviewImages()
 })
 
 // ── AI assistant ─────────────────────────────────────────────────────────────
@@ -1833,8 +1889,10 @@ const selectionIsEditable = computed(() => !!detectSelectionType(selectedText.va
           <!-- Preview pane -->
           <div
             v-if="rightPane === 'preview'"
+            ref="previewEl"
             class="flex-1 overflow-y-auto px-8 py-6 prose prose-vault max-w-none"
             v-html="previewHtml"
+            @click="onPreviewClick"
           />
 
           <!-- AI pane -->
