@@ -99,6 +99,17 @@ function checkMismatch() {
       view_doc_length: docLen,
       view_initialized: view !== null,
     })
+    console.warn('[MarkdownEditor] MISMATCH — props have content but editor is empty; auto-recovering', {
+      propLen,
+      docLen,
+      viewInitialized: view !== null,
+    })
+    if (view) {
+      view.dispatch({
+        changes: { from: 0, to: 0, insert: props.modelValue || '' },
+        effects: lineWrapCompartment?.reconfigure(props.lineWrap ? [EditorView.lineWrapping] : []),
+      })
+    }
   }
   debugMismatch.value = mismatch
 }
@@ -115,6 +126,10 @@ onMounted(() => {
   rec('mount', {
     props_modelValue_length: (props.modelValue ?? '').length,
     props_modelValue_preview: (props.modelValue ?? '').slice(0, 60) || '(empty)',
+  })
+  console.log('[MarkdownEditor] mount', {
+    propLen: (props.modelValue ?? '').length,
+    propPreview: (props.modelValue ?? '').slice(0, 60) || '(empty)',
   })
 
   lineWrapCompartment = new Compartment()
@@ -168,8 +183,22 @@ onMounted(() => {
     initial_doc_length: view.state.doc.length,
     props_modelValue_length: (props.modelValue ?? '').length,
   })
+  console.log('[MarkdownEditor] view-created', {
+    initialDocLen: view.state.doc.length,
+    propLen: (props.modelValue ?? '').length,
+  })
 
-  nextTick(() => checkMismatch())
+  nextTick(() => {
+    if (view && props.modelValue && view.state.doc.length === 0) {
+      view.dispatch({
+        changes: { from: 0, to: 0, insert: props.modelValue },
+        effects: lineWrapCompartment?.reconfigure(props.lineWrap ? [EditorView.lineWrapping] : []),
+      })
+      rec('mount-late-sync', { inserted_length: props.modelValue.length })
+      console.log('[MarkdownEditor] mount-late-sync applied', { insertedLen: props.modelValue.length })
+    }
+    checkMismatch()
+  })
 })
 
 onBeforeUnmount(() => {
@@ -191,6 +220,11 @@ watch(
       rec('warn:watch-skipped', {
         reason: !view ? 'view_null' : 'isUpdatingFromView',
       })
+      console.warn('[MarkdownEditor] watch-skipped', {
+        reason: !view ? 'view_null' : 'isUpdatingFromView',
+        valueLen: (value ?? '').length,
+      })
+      nextTick(() => checkMismatch())
       return
     }
     const current = view.state.doc.toString()
@@ -202,6 +236,10 @@ watch(
       rec('dispatch-executed', {
         inserted_length: (value ?? '').length,
         replaced_length: current.length,
+      })
+      console.log('[MarkdownEditor] dispatch-executed', {
+        insertedLen: (value ?? '').length,
+        replacedLen: current.length,
       })
     } else {
       rec('watch-no-change-needed', { length: (value ?? '').length })
