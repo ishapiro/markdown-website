@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { marked } from 'marked'
 import type { NavNode } from '~/server/api/navigation.get'
-import { FONT_PRESETS, FONT_SIZES, type FontPresetKey, type FontSizeKey } from '~/shared/fontPresets'
+import {
+  FONT_PRESETS, FONT_SIZES as SITE_FONT_SIZES, type FontPresetKey, type FontSizeKey,
+  BACKGROUND_PRESETS, CONTENT_WIDTHS, TEXT_STYLES, HEADING_COLORS, HEADING_RULE_STYLES,
+  type BackgroundPresetKey, type ContentWidthKey, type TextStyleKey, type HeadingColorKey, type HeadingRuleStyleKey,
+} from '~/shared/fontPresets'
 
 definePageMeta({ layout: 'admin', middleware: ['admin-auth'] })
 
@@ -22,6 +26,7 @@ const saving = ref(false)
 const saveStatus = ref<'idle' | 'saved' | 'error'>('idle')
 const errorMsg = ref('')
 const sidebarRefresh = ref(0)
+const noteLoading = ref(!!editSlug.value)
 
 // ── Sidebar resize ───────────────────────────────────────────────────────────
 const SIDEBAR_MIN = 160
@@ -57,6 +62,8 @@ interface AdminSiteConfig {
   ogImageUrl: string; faviconUrl: string; robotsMeta: string
   analyticsId: string; unsplashAttributionSource: string; homePage: string
   fontFamily: FontPresetKey; fontSize: FontSizeKey
+  backgroundPreset: BackgroundPresetKey; contentWidth: ContentWidthKey
+  textStyle: TextStyleKey; headingColor: HeadingColorKey; headingRuleStyle: HeadingRuleStyleKey
 }
 // Shared with admin layout — layout's "Site Settings" button sets this to true
 const showConfigPanel = useState('adminShowConfigPanel', () => false)
@@ -101,6 +108,8 @@ async function saveConfig() {
       mastodonUrl: fresh.mastodonUrl, ogImageUrl: fresh.ogImageUrl, faviconUrl: fresh.faviconUrl,
       robotsMeta: fresh.robotsMeta, homePage: fresh.homePage,
       fontFamily: fresh.fontFamily, fontSize: fresh.fontSize,
+      backgroundPreset: fresh.backgroundPreset, contentWidth: fresh.contentWidth,
+      textStyle: fresh.textStyle, headingColor: fresh.headingColor, headingRuleStyle: fresh.headingRuleStyle,
     }
     setTimeout(() => { configSaveStatus.value = 'idle' }, 3000)
   } catch (e: unknown) {
@@ -175,8 +184,10 @@ function resetForm() {
 watchEffect(async () => {
   if (!editSlug.value) {
     resetForm()
+    noteLoading.value = false
     return
   }
+  noteLoading.value = true
   const data = await $fetch<{ title: string; slug: string; parentPath: string; isPublished: boolean; createdAt: string; content: string; sortOrder: number | null; showDate: boolean }>(
     `/api/admin/notes/${editSlug.value}`,
   ).catch(() => null)
@@ -190,6 +201,7 @@ watchEffect(async () => {
     showDate.value = data.showDate !== false
     content.value = data.content
   }
+  noteLoading.value = false
 })
 
 async function save() {
@@ -1876,6 +1888,7 @@ const selectionIsEditable = computed(() => !!detectSelectionType(selectedText.va
         <!-- Left: CodeMirror editor -->
         <div class="flex flex-col overflow-hidden border-r border-vault-border">
           <MarkdownEditor
+            v-if="!noteLoading"
             v-model="content"
             :external-cursor-pos="externalCursorPos ?? undefined"
             :font-size="fontSize"
@@ -1884,6 +1897,7 @@ const selectionIsEditable = computed(() => !!detectSelectionType(selectedText.va
             @selection-change="onSelectionChange"
             @selection-meta="onSelectionMeta"
           />
+          <div v-else class="flex-1 min-h-0" />
         </div>
 
         <!-- Right: preview or AI -->
@@ -2125,9 +2139,9 @@ const selectionIsEditable = computed(() => !!detectSelectionType(selectedText.va
             </div>
           </fieldset>
 
-          <!-- Typography -->
+          <!-- Appearance -->
           <fieldset class="space-y-3">
-            <legend class="text-[10px] font-semibold uppercase tracking-wider text-vault-faint mb-2">Typography</legend>
+            <legend class="text-[10px] font-semibold uppercase tracking-wider text-vault-faint mb-2">Appearance</legend>
             <div class="grid grid-cols-2 gap-3">
               <label class="flex flex-col gap-1 text-xs">
                 <span class="text-vault-faint font-medium">Font Family</span>
@@ -2138,7 +2152,37 @@ const selectionIsEditable = computed(() => !!detectSelectionType(selectedText.va
               <label class="flex flex-col gap-1 text-xs">
                 <span class="text-vault-faint font-medium">Font Size</span>
                 <select v-model="configForm.fontSize" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full">
-                  <option v-for="(size, key) in FONT_SIZES" :key="key" :value="key">{{ size.label }}</option>
+                  <option v-for="(size, key) in SITE_FONT_SIZES" :key="key" :value="key">{{ size.label }}</option>
+                </select>
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Background</span>
+                <select v-model="configForm.backgroundPreset" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full">
+                  <option v-for="(preset, key) in BACKGROUND_PRESETS" :key="key" :value="key">{{ preset.label }}</option>
+                </select>
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Content Width</span>
+                <select v-model="configForm.contentWidth" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full">
+                  <option v-for="(width, key) in CONTENT_WIDTHS" :key="key" :value="key">{{ width.label }}</option>
+                </select>
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Text Style</span>
+                <select v-model="configForm.textStyle" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full">
+                  <option v-for="(style, key) in TEXT_STYLES" :key="key" :value="key">{{ style.label }}</option>
+                </select>
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Heading Color</span>
+                <select v-model="configForm.headingColor" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full">
+                  <option v-for="(color, key) in HEADING_COLORS" :key="key" :value="key">{{ color.label }}</option>
+                </select>
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Heading Underline</span>
+                <select v-model="configForm.headingRuleStyle" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full">
+                  <option v-for="(rule, key) in HEADING_RULE_STYLES" :key="key" :value="key">{{ rule.label }}</option>
                 </select>
               </label>
             </div>

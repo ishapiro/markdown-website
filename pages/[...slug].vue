@@ -2,6 +2,10 @@
 import { marked } from 'marked'
 import { FolderIcon, FileTextIcon } from 'lucide-vue-next'
 import type { NavNode } from '~/server/api/navigation.get'
+import { BACKGROUND_PRESETS } from '~/shared/fontPresets'
+
+const siteConfig = useSiteConfig()
+const isCard = computed(() => BACKGROUND_PRESETS[siteConfig.value.backgroundPreset]?.card ?? false)
 
 const route = useRoute()
 const slug = computed(() => (route.params.slug as string[]).join('/'))
@@ -140,7 +144,11 @@ useHead({
 </script>
 
 <template>
-  <article class="max-w-[960px] mx-auto px-4 py-6 md:px-12 md:py-10">
+  <article
+    class="mx-auto px-4 py-6 md:px-12 md:py-10"
+    :class="isCard ? 'bg-vault-bg rounded-lg shadow-sm my-6 md:my-10' : ''"
+    style="max-width: var(--content-max-width, 960px)"
+  >
     <!-- Breadcrumb (shared between note and folder views) -->
     <nav class="flex items-center gap-1 text-[10px] md:text-xs text-vault-muted mb-6 min-w-0">
       <NuxtLink to="/" class="hover:text-vault-text shrink-0">Home</NuxtLink>
@@ -158,7 +166,7 @@ useHead({
     <!-- Note view -->
     <template v-if="note">
       <header class="mb-8 pb-6 border-b border-vault-border">
-        <h1 class="text-2xl md:text-3xl font-bold text-vault-text mb-2">{{ note.title }}</h1>
+        <h1 class="heading-rule text-2xl md:text-3xl font-bold mb-2">{{ note.title }}</h1>
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-vault-muted">
           <template v-if="note.showDate !== false">
             <span>Created {{ new Date(note.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }}</span>
@@ -189,7 +197,7 @@ useHead({
     <!-- Folder index view -->
     <template v-else-if="folderNode">
       <header class="mb-8 pb-6 border-b border-vault-border">
-        <h1 class="text-2xl md:text-3xl font-bold text-vault-text">{{ folderNode.title }}</h1>
+        <h1 class="heading-rule text-2xl md:text-3xl font-bold">{{ folderNode.title }}</h1>
       </header>
 
       <ul class="space-y-1">

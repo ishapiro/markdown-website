@@ -49,6 +49,11 @@ export const siteConfig = sqliteTable('site_config', {
   homePage: text('home_page').notNull().default('/home'),
   fontFamily: text('font_family').notNull().default('fraunces-manrope'),
   fontSize: text('font_size').notNull().default('md'),
+  backgroundPreset: text('background_preset').notNull().default('white'),
+  contentWidth: text('content_width').notNull().default('medium'),
+  textStyle: text('text_style').notNull().default('classic'),
+  headingColor: text('heading_color').notNull().default('default'),
+  headingRuleStyle: text('heading_rule_style').notNull().default('short'),
 })
 
 export type SiteConfig = typeof siteConfig.$inferSelect

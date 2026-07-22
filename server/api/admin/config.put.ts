@@ -23,6 +23,11 @@ const ConfigSchema = z.object({
   homePage: z.string().min(1).max(255).startsWith('/'),
   fontFamily: z.enum(['fraunces-manrope', 'geist', 'manrope', 'inter']),
   fontSize: z.enum(['xs', 'sm', 'md', 'lg']),
+  backgroundPreset: z.enum(['white', 'cream', 'sand', 'gray']),
+  contentWidth: z.enum(['narrow', 'medium', 'wide']),
+  textStyle: z.enum(['classic', 'navy-bold']),
+  headingColor: z.enum(['default', 'navy', 'charcoal', 'accent']),
+  headingRuleStyle: z.enum(['short', 'full', 'none']),
 })
 
 export default defineEventHandler(async (event) => {

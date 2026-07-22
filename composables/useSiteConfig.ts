@@ -1,4 +1,4 @@
-import type { FontPresetKey, FontSizeKey } from '~/shared/fontPresets'
+import type { FontPresetKey, FontSizeKey, BackgroundPresetKey, ContentWidthKey, TextStyleKey, HeadingColorKey, HeadingRuleStyleKey } from '~/shared/fontPresets'
 
 export interface PublicSiteConfig {
   siteTitle: string
@@ -16,6 +16,11 @@ export interface PublicSiteConfig {
   homePage: string
   fontFamily: FontPresetKey
   fontSize: FontSizeKey
+  backgroundPreset: BackgroundPresetKey
+  contentWidth: ContentWidthKey
+  textStyle: TextStyleKey
+  headingColor: HeadingColorKey
+  headingRuleStyle: HeadingRuleStyleKey
 }
 
 const DEFAULT_CONFIG: PublicSiteConfig = {
@@ -34,6 +39,11 @@ const DEFAULT_CONFIG: PublicSiteConfig = {
   homePage: '/home',
   fontFamily: 'fraunces-manrope',
   fontSize: 'md',
+  backgroundPreset: 'white',
+  contentWidth: 'medium',
+  textStyle: 'classic',
+  headingColor: 'default',
+  headingRuleStyle: 'short',
 }
 
 export function useSiteConfig() {

@@ -8,6 +8,23 @@
 .prose h2 { line-height: 1.2; }
 .prose h3, .prose h4 { line-height: 1.25; }
 
+/* Shared page-title heading rule (used outside .prose, e.g. the note/folder
+   title in pages/[...slug].vue) — same short accent bar as .prose h1. */
+.heading-rule {
+  color: var(--prose-heading-color, inherit);
+  position: relative;
+  padding-bottom: 0.3em;
+}
+.heading-rule::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--heading-rule-width, 48px);
+  height: 3px;
+  @apply bg-vault-accent rounded-sm;
+}
+
 /* Internal WikiLink styling */
 .prose a.internal-link {
   @apply text-vault-accent border-vault-accent;

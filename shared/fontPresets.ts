@@ -17,3 +17,49 @@ export const FONT_SIZES = {
 
 export type FontSizeKey = keyof typeof FONT_SIZES
 export const FONT_SIZE_KEYS = Object.keys(FONT_SIZES) as FontSizeKey[]
+
+export const BACKGROUND_PRESETS = {
+  white: { label: 'White (default)', bg: '#ffffff', card: false },
+  cream: { label: 'Warm cream', bg: '#faf6f0', card: true },
+  sand: { label: 'Warm sand', bg: '#f3efe8', card: true },
+  gray: { label: 'Soft gray', bg: '#f5f5f4', card: true },
+} as const
+
+export type BackgroundPresetKey = keyof typeof BACKGROUND_PRESETS
+export const BACKGROUND_PRESET_KEYS = Object.keys(BACKGROUND_PRESETS) as BackgroundPresetKey[]
+
+export const CONTENT_WIDTHS = {
+  narrow: { label: 'Narrow (~720px)', px: 720 },
+  medium: { label: 'Medium (default, ~960px)', px: 960 },
+  wide: { label: 'Wide (~1140px)', px: 1140 },
+} as const
+
+export type ContentWidthKey = keyof typeof CONTENT_WIDTHS
+export const CONTENT_WIDTH_KEYS = Object.keys(CONTENT_WIDTHS) as ContentWidthKey[]
+
+export const TEXT_STYLES = {
+  classic: { label: 'Classic (default)', color: '', emphasisUnderline: false },
+  'navy-bold': { label: 'Navy Bold (editorial)', color: '#1e2a4a', emphasisUnderline: true },
+} as const
+
+export type TextStyleKey = keyof typeof TEXT_STYLES
+export const TEXT_STYLE_KEYS = Object.keys(TEXT_STYLES) as TextStyleKey[]
+
+export const HEADING_COLORS = {
+  default: { label: 'Match body text (default)', color: '' },
+  navy: { label: 'Navy', color: '#1e2a4a' },
+  charcoal: { label: 'Charcoal', color: '#222222' },
+  accent: { label: 'Accent purple', color: '#7852ee' },
+} as const
+
+export type HeadingColorKey = keyof typeof HEADING_COLORS
+export const HEADING_COLOR_KEYS = Object.keys(HEADING_COLORS) as HeadingColorKey[]
+
+export const HEADING_RULE_STYLES = {
+  short: { label: 'Short line (default)', width: '48px' },
+  full: { label: 'Full width line', width: '100%' },
+  none: { label: 'No line', width: '0px' },
+} as const
+
+export type HeadingRuleStyleKey = keyof typeof HEADING_RULE_STYLES
+export const HEADING_RULE_STYLE_KEYS = Object.keys(HEADING_RULE_STYLES) as HeadingRuleStyleKey[]

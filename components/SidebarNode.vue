@@ -15,11 +15,11 @@ const isActive = computed(() => route.path === nodePath.value)
 <template>
   <div>
     <div
-      class="flex items-center gap-1 rounded cursor-pointer group"
-      :style="{ paddingLeft: `${8 + depth * 12}px` }"
+      class="flex items-center gap-1 rounded cursor-pointer group border-l-2"
+      :style="{ paddingLeft: `${8 + depth * 16}px` }"
       :class="[
-        'py-1.5 md:py-0.5 pr-2',
-        isActive ? 'bg-vault-surface text-vault-accent' : 'text-vault-text hover:bg-vault-surface/50',
+        'py-2 md:py-1 pr-2',
+        isActive ? 'bg-vault-surface text-vault-accent border-vault-accent' : 'text-vault-text hover:bg-vault-surface/50 border-transparent',
       ]"
     >
       <button
@@ -39,12 +39,12 @@ const isActive = computed(() => route.path === nodePath.value)
       <NuxtLink
         v-if="!node.path"
         :to="`/${node.slug}`"
-        class="flex-1 text-xs truncate py-0.5 font-semibold text-vault-muted"
+        class="flex-1 text-sm truncate py-0.5 font-semibold text-vault-muted"
       >
         {{ node.title }}
         <span class="text-vault-muted/60 font-normal">({{ node.children.length }})</span>
       </NuxtLink>
-      <NuxtLink v-else :to="node.path" class="flex-1 text-xs truncate py-0.5">
+      <NuxtLink v-else :to="node.path" class="flex-1 text-sm truncate py-0.5">
         {{ node.title }}
       </NuxtLink>
     </div>

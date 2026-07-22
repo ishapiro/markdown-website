@@ -5,7 +5,7 @@ const PUBLIC_FIELDS = [
   'siteTitle', 'siteTagline', 'siteLogoKey', 'copyrightNotice', 'authorName',
   'twitterUrl', 'githubUrl', 'linkedinUrl', 'mastodonUrl',
   'ogImageUrl', 'faviconUrl', 'robotsMeta', 'homePage',
-  'fontFamily', 'fontSize',
+  'fontFamily', 'fontSize', 'backgroundPreset', 'contentWidth', 'textStyle', 'headingColor', 'headingRuleStyle',
 ] as const
 
 export default defineEventHandler(async (event) => {

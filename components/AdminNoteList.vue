@@ -311,7 +311,7 @@ async function deleteFolder(node: TreeNode) {
         >
           <!-- Folder node -->
           <template v-if="node.isFolder">
-            <span class="flex-1 flex items-center gap-1 py-1 pr-2 text-xs font-semibold text-vault-muted uppercase tracking-wide select-none">
+            <span class="flex-1 flex items-center gap-1 py-1 pr-2 text-sm font-semibold text-vault-muted uppercase tracking-wide select-none">
               <span class="opacity-50">▸</span>
               {{ node.title }}
             </span>
@@ -329,7 +329,7 @@ async function deleteFolder(node: TreeNode) {
           <!-- Real note (clickable) -->
           <template v-else>
             <button
-              class="flex-1 text-left py-1 pr-1 text-xs rounded transition-colors truncate min-w-0"
+              class="flex-1 text-left py-1 pr-1 text-sm rounded transition-colors truncate min-w-0"
               :class="[
                 node.slug === currentSlug
                   ? 'text-vault-accent font-semibold bg-vault-accent/10'
