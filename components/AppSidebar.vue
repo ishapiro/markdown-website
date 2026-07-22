@@ -16,7 +16,8 @@ const siteConfig = useSiteConfig()
           v-if="siteConfig.siteLogoKey"
           :src="`/api/images/${siteConfig.siteLogoKey}`"
           alt="Site logo"
-          class="h-9 w-9 object-contain shrink-0"
+          class="object-contain shrink-0"
+          style="width: var(--logo-size, 36px); height: var(--logo-size, 36px)"
         />
         {{ siteConfig.siteTitle }}
       </NuxtLink>

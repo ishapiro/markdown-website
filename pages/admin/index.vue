@@ -3,8 +3,9 @@ import { marked } from 'marked'
 import type { NavNode } from '~/server/api/navigation.get'
 import {
   FONT_PRESETS, FONT_SIZES as SITE_FONT_SIZES, type FontPresetKey, type FontSizeKey,
-  BACKGROUND_PRESETS, CONTENT_WIDTHS, TEXT_STYLES, HEADING_COLORS, HEADING_RULE_STYLES,
+  BACKGROUND_PRESETS, CONTENT_WIDTHS, TEXT_STYLES, HEADING_COLORS, HEADING_RULE_STYLES, H2_RULE_COLORS, LOGO_SIZES,
   type BackgroundPresetKey, type ContentWidthKey, type TextStyleKey, type HeadingColorKey, type HeadingRuleStyleKey,
+  type H2RuleColorKey, type LogoSizeKey,
 } from '~/shared/fontPresets'
 
 definePageMeta({ layout: 'admin', middleware: ['admin-auth'] })
@@ -64,6 +65,7 @@ interface AdminSiteConfig {
   fontFamily: FontPresetKey; fontSize: FontSizeKey
   backgroundPreset: BackgroundPresetKey; contentWidth: ContentWidthKey
   textStyle: TextStyleKey; headingColor: HeadingColorKey; headingRuleStyle: HeadingRuleStyleKey
+  h2RuleColor: H2RuleColorKey; logoSize: LogoSizeKey
 }
 // Shared with admin layout — layout's "Site Settings" button sets this to true
 const showConfigPanel = useState('adminShowConfigPanel', () => false)
@@ -110,6 +112,7 @@ async function saveConfig() {
       fontFamily: fresh.fontFamily, fontSize: fresh.fontSize,
       backgroundPreset: fresh.backgroundPreset, contentWidth: fresh.contentWidth,
       textStyle: fresh.textStyle, headingColor: fresh.headingColor, headingRuleStyle: fresh.headingRuleStyle,
+      h2RuleColor: fresh.h2RuleColor, logoSize: fresh.logoSize,
     }
     setTimeout(() => { configSaveStatus.value = 'idle' }, 3000)
   } catch (e: unknown) {
@@ -2085,6 +2088,12 @@ const selectionIsEditable = computed(() => !!detectSelectionType(selectedText.va
                 <p v-if="logoUploadStatus" class="text-[10px] text-red-500">{{ logoUploadStatus }}</p>
                 <p class="text-[10px] text-vault-faint">Displayed to the left of the site title. jpeg, png, gif, webp, svg accepted.</p>
               </div>
+              <label class="flex flex-col gap-1 text-xs ml-auto">
+                <span class="text-vault-faint font-medium">Logo Size</span>
+                <select v-model="configForm.logoSize" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full">
+                  <option v-for="(size, key) in LOGO_SIZES" :key="key" :value="key">{{ size.label }}</option>
+                </select>
+              </label>
             </div>
 
             <div class="grid grid-cols-2 gap-3">
@@ -2183,6 +2192,12 @@ const selectionIsEditable = computed(() => !!detectSelectionType(selectedText.va
                 <span class="text-vault-faint font-medium">Heading Underline</span>
                 <select v-model="configForm.headingRuleStyle" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full">
                   <option v-for="(rule, key) in HEADING_RULE_STYLES" :key="key" :value="key">{{ rule.label }}</option>
+                </select>
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">H2 Underline Color</span>
+                <select v-model="configForm.h2RuleColor" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full">
+                  <option v-for="(color, key) in H2_RULE_COLORS" :key="key" :value="key">{{ color.label }}</option>
                 </select>
               </label>
             </div>

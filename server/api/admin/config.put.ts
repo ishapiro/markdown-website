@@ -28,6 +28,8 @@ const ConfigSchema = z.object({
   textStyle: z.enum(['classic', 'navy-bold']),
   headingColor: z.enum(['default', 'navy', 'charcoal', 'accent']),
   headingRuleStyle: z.enum(['short', 'full', 'none']),
+  h2RuleColor: z.enum(['green', 'accent', 'navy', 'charcoal']),
+  logoSize: z.enum(['sm', 'md', 'lg', 'xl']),
 })
 
 export default defineEventHandler(async (event) => {

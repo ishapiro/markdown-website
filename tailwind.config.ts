@@ -91,7 +91,22 @@ export default {
                 borderRadius: '2px',
               },
             },
-            h2: { fontSize: '1.8em', marginBottom: '0.2em' },
+            h2: {
+              fontSize: '1.8em',
+              marginBottom: '0.4em',
+              position: 'relative',
+              paddingBottom: '0.25em',
+              '&::after': {
+                content: '""',
+                position: 'absolute',
+                left: 0,
+                bottom: 0,
+                width: 'var(--heading-rule-width, 48px)',
+                height: '3px',
+                background: 'var(--h2-rule-color, #08b94e)',
+                borderRadius: '2px',
+              },
+            },
             h3: { fontSize: '1.4em' },
             p: { marginTop: '0.75em', marginBottom: '0.75em' },
             'code:not(pre code)': {

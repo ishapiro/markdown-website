@@ -1,4 +1,4 @@
-import type { FontPresetKey, FontSizeKey, BackgroundPresetKey, ContentWidthKey, TextStyleKey, HeadingColorKey, HeadingRuleStyleKey } from '~/shared/fontPresets'
+import type { FontPresetKey, FontSizeKey, BackgroundPresetKey, ContentWidthKey, TextStyleKey, HeadingColorKey, HeadingRuleStyleKey, H2RuleColorKey, LogoSizeKey } from '~/shared/fontPresets'
 
 export interface PublicSiteConfig {
   siteTitle: string
@@ -21,6 +21,8 @@ export interface PublicSiteConfig {
   textStyle: TextStyleKey
   headingColor: HeadingColorKey
   headingRuleStyle: HeadingRuleStyleKey
+  h2RuleColor: H2RuleColorKey
+  logoSize: LogoSizeKey
 }
 
 const DEFAULT_CONFIG: PublicSiteConfig = {
@@ -44,6 +46,8 @@ const DEFAULT_CONFIG: PublicSiteConfig = {
   textStyle: 'classic',
   headingColor: 'default',
   headingRuleStyle: 'short',
+  h2RuleColor: 'green',
+  logoSize: 'md',
 }
 
 export function useSiteConfig() {

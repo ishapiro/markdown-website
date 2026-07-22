@@ -63,3 +63,23 @@ export const HEADING_RULE_STYLES = {
 
 export type HeadingRuleStyleKey = keyof typeof HEADING_RULE_STYLES
 export const HEADING_RULE_STYLE_KEYS = Object.keys(HEADING_RULE_STYLES) as HeadingRuleStyleKey[]
+
+export const H2_RULE_COLORS = {
+  green: { label: 'Green (default)', color: '#08b94e' },
+  accent: { label: 'Accent purple', color: '#7852ee' },
+  navy: { label: 'Navy', color: '#1e2a4a' },
+  charcoal: { label: 'Charcoal', color: '#222222' },
+} as const
+
+export type H2RuleColorKey = keyof typeof H2_RULE_COLORS
+export const H2_RULE_COLOR_KEYS = Object.keys(H2_RULE_COLORS) as H2RuleColorKey[]
+
+export const LOGO_SIZES = {
+  sm: { label: 'Small', px: 28 },
+  md: { label: 'Medium (default)', px: 36 },
+  lg: { label: 'Large', px: 48 },
+  xl: { label: 'Extra large', px: 64 },
+} as const
+
+export type LogoSizeKey = keyof typeof LOGO_SIZES
+export const LOGO_SIZE_KEYS = Object.keys(LOGO_SIZES) as LogoSizeKey[]

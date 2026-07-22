@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { PublicSiteConfig } from '~/composables/useSiteConfig'
-import { FONT_PRESETS, FONT_SIZES, BACKGROUND_PRESETS, CONTENT_WIDTHS, TEXT_STYLES, HEADING_COLORS, HEADING_RULE_STYLES } from '~/shared/fontPresets'
+import { FONT_PRESETS, FONT_SIZES, BACKGROUND_PRESETS, CONTENT_WIDTHS, TEXT_STYLES, HEADING_COLORS, HEADING_RULE_STYLES, H2_RULE_COLORS, LOGO_SIZES } from '~/shared/fontPresets'
 
 const siteConfig = useSiteConfig()
 const { data } = await useFetch<PublicSiteConfig>('/api/config', { key: 'site-config' })
@@ -29,6 +29,8 @@ const headingColor = computed(() => HEADING_COLORS[siteConfig.value.headingColor
 const proseTextColor = computed(() => textStyle.value.color || 'inherit')
 const emphasisDecoration = computed(() => (textStyle.value.emphasisUnderline ? 'underline' : 'none'))
 const headingRuleWidth = computed(() => HEADING_RULE_STYLES[siteConfig.value.headingRuleStyle]?.width ?? '48px')
+const h2RuleColor = computed(() => H2_RULE_COLORS[siteConfig.value.h2RuleColor]?.color ?? '#08b94e')
+const logoSize = computed(() => `${LOGO_SIZES[siteConfig.value.logoSize]?.px ?? 36}px`)
 
 // These custom properties must live on <html> itself so they inherit correctly to
 // every element in the document. Vue's v-bind()-in-<style> instead injects them as
@@ -46,9 +48,11 @@ const htmlStyle = computed(() => ({
   '--prose-heading-color': headingColor.value,
   '--prose-emphasis-decoration': emphasisDecoration.value,
   '--heading-rule-width': headingRuleWidth.value,
+  '--h2-rule-color': h2RuleColor.value,
   '--font-size-base': `${sizePx.value}px`,
   '--font-size-mobile': `${sizePx.value - 2}px`,
   '--page-bg': background.value.bg,
+  '--logo-size': logoSize.value,
 }))
 
 useHead({

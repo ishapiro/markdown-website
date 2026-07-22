@@ -52,7 +52,14 @@ const wikiLinkMap = computed(() => {
 })
 
 if (error.value?.statusCode === 404 && !findNode(navTree.value ?? [], slug.value)) {
-  throw createError({ statusCode: 404, message: 'Note not found', fatal: true })
+  // A dead link (stale bookmark, renamed slug, etc.) just bounces to the home
+  // page instead of showing a 404 — but if the home page's own note is what's
+  // missing (e.g. a stale "Home Page" setting), redirecting to "/" again would
+  // loop forever, so surface a real error in that case instead.
+  if (props.isHome) {
+    throw createError({ statusCode: 404, message: 'Note not found', fatal: true })
+  }
+  await navigateTo('/', { redirectCode: 302 })
 }
 
 // Configure marked for safe rendering
@@ -153,13 +160,13 @@ useHead({
     <!-- Breadcrumb (shared between note and folder views) — omitted on the home
          page, since there's nowhere "up" to go and its second crumb would point to
          a different URL (the note's real slug) than the current one (/). -->
-    <nav v-if="!isHome" class="flex items-center gap-1 text-[10px] md:text-xs text-vault-muted mb-6 min-w-0">
-      <NuxtLink to="/" class="hover:text-vault-text shrink-0">Home</NuxtLink>
+    <nav v-if="!isHome" class="heading-rule flex items-center gap-1 text-2xl md:text-3xl font-bold mb-6 min-w-0">
+      <NuxtLink to="/" class="hover:text-vault-accent shrink-0">Home</NuxtLink>
       <template v-for="(part, i) in slug.split('/')" :key="i">
         <span class="shrink-0">/</span>
         <NuxtLink
           :to="`/${slug.split('/').slice(0, i + 1).join('/')}`"
-          class="hover:text-vault-text capitalize truncate max-w-[120px] md:max-w-none"
+          class="hover:text-vault-accent capitalize truncate max-w-[120px] md:max-w-none"
         >
           {{ part.replace(/-/g, ' ') }}
         </NuxtLink>

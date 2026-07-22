@@ -6,6 +6,7 @@ const PUBLIC_FIELDS = [
   'twitterUrl', 'githubUrl', 'linkedinUrl', 'mastodonUrl',
   'ogImageUrl', 'faviconUrl', 'robotsMeta', 'homePage',
   'fontFamily', 'fontSize', 'backgroundPreset', 'contentWidth', 'textStyle', 'headingColor', 'headingRuleStyle',
+  'h2RuleColor', 'logoSize',
 ] as const
 
 export default defineEventHandler(async (event) => {

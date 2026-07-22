@@ -54,6 +54,8 @@ export const siteConfig = sqliteTable('site_config', {
   textStyle: text('text_style').notNull().default('classic'),
   headingColor: text('heading_color').notNull().default('default'),
   headingRuleStyle: text('heading_rule_style').notNull().default('short'),
+  h2RuleColor: text('h2_rule_color').notNull().default('green'),
+  logoSize: text('logo_size').notNull().default('md'),
 })
 
 export type SiteConfig = typeof siteConfig.$inferSelect
