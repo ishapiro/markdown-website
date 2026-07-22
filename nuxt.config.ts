@@ -1,5 +1,7 @@
 export default defineNuxtConfig({
-  modules: ['@nuxtjs/tailwindcss'],
+  modules: ['@nuxtjs/tailwindcss', '@nuxt/fonts'],
+
+  css: ['~/assets/css/prose.css'],
 
   routeRules: {
     '/admin/**': { ssr: false },

@@ -12,7 +12,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['InterVariable', 'Inter', 'ui-sans-serif', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-body)', 'Manrope', 'Geist', 'Inter', 'ui-sans-serif', '-apple-system', 'BlinkMacSystemFont', 'system-ui', 'sans-serif'],
+        serif: ['var(--font-heading)', 'Fraunces', 'Geist', 'Manrope', 'Inter', 'ui-serif', 'Georgia', 'serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Cascadia Mono', 'Roboto Mono', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
       colors: {
@@ -53,7 +54,7 @@ export default {
             '--tw-prose-td-borders':  theme('colors.vault.border'),
             color: theme('colors.vault.text'),
             fontSize: '16px',
-            lineHeight: '1.6',
+            lineHeight: '1.7',
             a: {
               color: theme('colors.vault.link'),
               textDecoration: 'underline',

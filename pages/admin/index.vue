@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { marked } from 'marked'
 import type { NavNode } from '~/server/api/navigation.get'
+import { FONT_PRESETS, FONT_SIZES, type FontPresetKey, type FontSizeKey } from '~/shared/fontPresets'
 
 definePageMeta({ layout: 'admin', middleware: ['admin-auth'] })
 
@@ -55,6 +56,7 @@ interface AdminSiteConfig {
   twitterUrl: string; githubUrl: string; linkedinUrl: string; mastodonUrl: string
   ogImageUrl: string; faviconUrl: string; robotsMeta: string
   analyticsId: string; unsplashAttributionSource: string; homePage: string
+  fontFamily: FontPresetKey; fontSize: FontSizeKey
 }
 // Shared with admin layout — layout's "Site Settings" button sets this to true
 const showConfigPanel = useState('adminShowConfigPanel', () => false)
@@ -98,6 +100,7 @@ async function saveConfig() {
       twitterUrl: fresh.twitterUrl, githubUrl: fresh.githubUrl, linkedinUrl: fresh.linkedinUrl,
       mastodonUrl: fresh.mastodonUrl, ogImageUrl: fresh.ogImageUrl, faviconUrl: fresh.faviconUrl,
       robotsMeta: fresh.robotsMeta, homePage: fresh.homePage,
+      fontFamily: fresh.fontFamily, fontSize: fresh.fontSize,
     }
     setTimeout(() => { configSaveStatus.value = 'idle' }, 3000)
   } catch (e: unknown) {
@@ -2118,6 +2121,25 @@ const selectionIsEditable = computed(() => !!detectSelectionType(selectedText.va
               <label class="flex flex-col gap-1 text-xs">
                 <span class="text-vault-faint font-medium">Mastodon URL</span>
                 <input v-model="configForm.mastodonUrl" type="url" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full" />
+              </label>
+            </div>
+          </fieldset>
+
+          <!-- Typography -->
+          <fieldset class="space-y-3">
+            <legend class="text-[10px] font-semibold uppercase tracking-wider text-vault-faint mb-2">Typography</legend>
+            <div class="grid grid-cols-2 gap-3">
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Font Family</span>
+                <select v-model="configForm.fontFamily" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full">
+                  <option v-for="(preset, key) in FONT_PRESETS" :key="key" :value="key">{{ preset.label }}</option>
+                </select>
+              </label>
+              <label class="flex flex-col gap-1 text-xs">
+                <span class="text-vault-faint font-medium">Font Size</span>
+                <select v-model="configForm.fontSize" class="bg-vault-bg border border-vault-border rounded px-2.5 py-1.5 text-vault-text text-xs outline-none focus:border-vault-accent w-full">
+                  <option v-for="(size, key) in FONT_SIZES" :key="key" :value="key">{{ size.label }}</option>
+                </select>
               </label>
             </div>
           </fieldset>

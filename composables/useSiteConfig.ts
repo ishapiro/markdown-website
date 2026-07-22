@@ -1,3 +1,5 @@
+import type { FontPresetKey, FontSizeKey } from '~/shared/fontPresets'
+
 export interface PublicSiteConfig {
   siteTitle: string
   siteTagline: string
@@ -12,6 +14,8 @@ export interface PublicSiteConfig {
   faviconUrl: string
   robotsMeta: string
   homePage: string
+  fontFamily: FontPresetKey
+  fontSize: FontSizeKey
 }
 
 const DEFAULT_CONFIG: PublicSiteConfig = {
@@ -28,6 +32,8 @@ const DEFAULT_CONFIG: PublicSiteConfig = {
   faviconUrl: '',
   robotsMeta: 'index,follow',
   homePage: '/home',
+  fontFamily: 'fraunces-manrope',
+  fontSize: 'md',
 }
 
 export function useSiteConfig() {

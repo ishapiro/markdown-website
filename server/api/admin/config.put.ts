@@ -21,6 +21,8 @@ const ConfigSchema = z.object({
   analyticsId: z.string().max(100),
   unsplashAttributionSource: z.string().max(100),
   homePage: z.string().min(1).max(255).startsWith('/'),
+  fontFamily: z.enum(['fraunces-manrope', 'geist', 'manrope', 'inter']),
+  fontSize: z.enum(['xs', 'sm', 'md', 'lg']),
 })
 
 export default defineEventHandler(async (event) => {

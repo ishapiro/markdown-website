@@ -1,0 +1,39 @@
+/* Heading font + leading — large display type needs tighter leading than
+   body text or it reads sparse/disconnected, especially with an expressive
+   serif heading face like Fraunces. */
+.prose h1, .prose h2, .prose h3, .prose h4 {
+  font-family: var(--font-heading);
+}
+.prose h1 { line-height: 1.15; }
+.prose h2 { line-height: 1.2; }
+.prose h3, .prose h4 { line-height: 1.25; }
+
+/* Internal WikiLink styling */
+.prose a.internal-link {
+  @apply text-vault-accent border-vault-accent;
+}
+
+/* Code block overrides */
+.prose pre {
+  @apply bg-vault-sidebar border border-vault-border overflow-x-auto;
+}
+
+.prose code:not(pre code) {
+  @apply bg-vault-surface text-red-400 px-1 py-0.5 rounded text-[0.85em];
+}
+
+/* Blockquote */
+.prose blockquote {
+  @apply border-l-4 border-vault-accent text-vault-muted bg-vault-surface/30 rounded-r;
+}
+
+/* Table — scrollable wrapper so wide tables don't push the page */
+.prose table {
+  @apply block overflow-x-auto;
+}
+.prose table th {
+  @apply bg-vault-surface text-vault-text border-vault-border;
+}
+.prose table td {
+  @apply border-vault-border;
+}

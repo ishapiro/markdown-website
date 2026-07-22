@@ -47,6 +47,8 @@ export const siteConfig = sqliteTable('site_config', {
   analyticsId: text('analytics_id').notNull().default(''),
   unsplashAttributionSource: text('unsplash_attribution_source').notNull().default(''),
   homePage: text('home_page').notNull().default('/home'),
+  fontFamily: text('font_family').notNull().default('fraunces-manrope'),
+  fontSize: text('font_size').notNull().default('md'),
 })
 
 export type SiteConfig = typeof siteConfig.$inferSelect

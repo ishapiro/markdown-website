@@ -208,35 +208,3 @@ useHead({
     </template>
   </article>
 </template>
-
-<style>
-/* Internal WikiLink styling */
-.prose a.internal-link {
-  @apply text-vault-accent border-vault-accent;
-}
-
-/* Code block overrides */
-.prose pre {
-  @apply bg-vault-sidebar border border-vault-border overflow-x-auto;
-}
-
-.prose code:not(pre code) {
-  @apply bg-vault-surface text-red-400 px-1 py-0.5 rounded text-[0.85em];
-}
-
-/* Blockquote */
-.prose blockquote {
-  @apply border-l-4 border-vault-accent text-vault-muted bg-vault-surface/30 rounded-r;
-}
-
-/* Table — scrollable wrapper so wide tables don't push the page */
-.prose table {
-  @apply block overflow-x-auto;
-}
-.prose table th {
-  @apply bg-vault-surface text-vault-text border-vault-border;
-}
-.prose table td {
-  @apply border-vault-border;
-}
-</style>
