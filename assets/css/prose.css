@@ -11,6 +11,7 @@
 /* Shared page-title heading rule (used outside .prose, e.g. the note/folder
    title in pages/[...slug].vue) — same short accent bar as .prose h1. */
 .heading-rule {
+  font-family: var(--font-heading);
   color: var(--prose-heading-color, inherit);
   position: relative;
   padding-bottom: 0.3em;

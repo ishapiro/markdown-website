@@ -96,7 +96,7 @@ function signInWithGoogle() {
       </form>
 
       <div class="mt-6 text-center">
-        <NuxtLink to="/home" class="text-xs text-vault-muted hover:text-vault-text transition-colors">
+        <NuxtLink to="/" class="text-xs text-vault-muted hover:text-vault-text transition-colors">
           Return to Blog
         </NuxtLink>
       </div>

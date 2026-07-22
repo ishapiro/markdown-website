@@ -5,7 +5,7 @@
       <span class="text-vault-accent font-semibold text-xl shrink-0">{{ siteConfig.siteTitle }}</span>
 
       <!-- Return to Blog -->
-      <NuxtLink to="/home" class="text-xs text-vault-muted hover:text-vault-text ml-4 shrink-0">
+      <NuxtLink to="/" class="text-xs text-vault-muted hover:text-vault-text ml-4 shrink-0">
         Return to Blog
       </NuxtLink>
 

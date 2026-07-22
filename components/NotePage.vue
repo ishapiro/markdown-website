@@ -159,24 +159,29 @@ useHead({
   >
     <!-- Breadcrumb (shared between note and folder views) — omitted on the home
          page, since there's nowhere "up" to go and its second crumb would point to
-         a different URL (the note's real slug) than the current one (/). -->
-    <nav v-if="!isHome" class="heading-rule flex items-center gap-1 text-2xl md:text-3xl font-bold mb-6 min-w-0">
-      <NuxtLink to="/" class="hover:text-vault-accent shrink-0">Home</NuxtLink>
-      <template v-for="(part, i) in slug.split('/')" :key="i">
-        <span class="shrink-0">/</span>
-        <NuxtLink
-          :to="`/${slug.split('/').slice(0, i + 1).join('/')}`"
-          class="hover:text-vault-accent capitalize truncate max-w-[120px] md:max-w-none"
-        >
-          {{ part.replace(/-/g, ' ') }}
-        </NuxtLink>
-      </template>
+         a different URL (the note's real slug) than the current one (/). It's the
+         page's true H1 (only) on non-home pages; the note/folder title below is a
+         real H1 only when the breadcrumb is hidden (the home page), so every page
+         has exactly one. -->
+    <nav v-if="!isHome" aria-label="Breadcrumb" class="mb-6 min-w-0">
+      <h1 class="heading-rule flex items-center gap-1 text-2xl md:text-3xl font-bold min-w-0">
+        <NuxtLink to="/" class="hover:text-vault-accent shrink-0">Home</NuxtLink>
+        <template v-for="(part, i) in slug.split('/')" :key="i">
+          <span class="shrink-0">/</span>
+          <NuxtLink
+            :to="`/${slug.split('/').slice(0, i + 1).join('/')}`"
+            class="hover:text-vault-accent capitalize truncate max-w-[120px] md:max-w-none"
+          >
+            {{ part.replace(/-/g, ' ') }}
+          </NuxtLink>
+        </template>
+      </h1>
     </nav>
 
     <!-- Note view -->
     <template v-if="note">
       <header class="mb-8 pb-6 border-b border-vault-border">
-        <h1 class="heading-rule text-2xl md:text-3xl font-bold mb-2">{{ note.title }}</h1>
+        <component :is="isHome ? 'h1' : 'h2'" class="heading-rule text-2xl md:text-3xl font-bold mb-2">{{ note.title }}</component>
         <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-vault-muted">
           <template v-if="note.showDate !== false">
             <span>Created {{ new Date(note.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }) }}</span>
@@ -207,7 +212,7 @@ useHead({
     <!-- Folder index view -->
     <template v-else-if="folderNode">
       <header class="mb-8 pb-6 border-b border-vault-border">
-        <h1 class="heading-rule text-2xl md:text-3xl font-bold">{{ folderNode.title }}</h1>
+        <component :is="isHome ? 'h1' : 'h2'" class="heading-rule text-2xl md:text-3xl font-bold">{{ folderNode.title }}</component>
       </header>
 
       <ul class="space-y-1">

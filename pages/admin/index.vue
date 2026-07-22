@@ -29,6 +29,11 @@ const errorMsg = ref('')
 const sidebarRefresh = ref(0)
 const noteLoading = ref(!!editSlug.value)
 
+// The page breadcrumb is now the page's H1 (see components/NotePage.vue), so a
+// markdown-authored H1 (a line starting with exactly one "#") would be a second H1
+// on the page — flag it and suggest H2 instead.
+const hasH1InContent = computed(() => /^#(?!#)\s+/m.test(content.value))
+
 // ── Sidebar resize ───────────────────────────────────────────────────────────
 const SIDEBAR_MIN = 160
 const SIDEBAR_MAX = 480
@@ -1231,7 +1236,7 @@ const selectionIsEditable = computed(() => !!detectSelectionType(selectedText.va
           <!-- View link styled as ghost button -->
           <NuxtLink
             v-if="editSlug"
-            :to="isPublished ? `/${editSlug}` : '/home'"
+            :to="isPublished ? `/${editSlug}` : '/'"
             target="_blank"
             class="inline-flex items-center gap-1 text-xs border rounded-md px-3 py-1.5 transition-colors font-medium"
             :class="isPublished
@@ -1883,6 +1888,15 @@ const selectionIsEditable = computed(() => !!detectSelectionType(selectedText.va
           class="text-xs text-vault-faint hover:text-vault-muted"
           @click="showPropertiesPanel = false"
         >Cancel</button>
+      </div>
+
+      <!-- Warning: the breadcrumb is the page's H1, so an authored H1 in the body
+           would be a second H1 on the page. -->
+      <div
+        v-if="hasH1InContent"
+        class="shrink-0 px-4 py-1.5 text-xs bg-yellow-50 text-yellow-800 border-b border-yellow-200"
+      >
+        This note has an H1 heading (<code class="font-mono"># Heading</code>) in its content. The page breadcrumb is already an H1 — consider changing it to H2 (<code class="font-mono">## Heading</code>) instead.
       </div>
 
       <!-- ── Split pane ─────────────────────────────────────────────────── -->
