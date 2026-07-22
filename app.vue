@@ -29,6 +29,33 @@ const headingColor = computed(() => HEADING_COLORS[siteConfig.value.headingColor
 const proseTextColor = computed(() => textStyle.value.color || 'inherit')
 const emphasisDecoration = computed(() => (textStyle.value.emphasisUnderline ? 'underline' : 'none'))
 const headingRuleWidth = computed(() => HEADING_RULE_STYLES[siteConfig.value.headingRuleStyle]?.width ?? '48px')
+
+// These custom properties must live on <html> itself so they inherit correctly to
+// every element in the document. Vue's v-bind()-in-<style> instead injects them as
+// an inline style on this component's own rendered root node — which, because
+// app.vue has no wrapping element, ends up being layouts/default.vue's inner div (a
+// *descendant* of <html>, not <html> itself). CSS custom properties only inherit
+// downward, so declaring them on :root while their real values live on a descendant
+// leaves them permanently unresolved. useHead's htmlAttrs.style sets them directly
+// on <html> during SSR, avoiding that mismatch entirely.
+const htmlStyle = computed(() => ({
+  '--font-heading': preset.value.heading,
+  '--font-body': preset.value.body,
+  '--content-max-width': contentMaxWidth.value,
+  '--prose-text-color': proseTextColor.value,
+  '--prose-heading-color': headingColor.value,
+  '--prose-emphasis-decoration': emphasisDecoration.value,
+  '--heading-rule-width': headingRuleWidth.value,
+  '--font-size-base': `${sizePx.value}px`,
+  '--font-size-mobile': `${sizePx.value - 2}px`,
+  '--page-bg': background.value.bg,
+}))
+
+useHead({
+  htmlAttrs: {
+    style: () => Object.entries(htmlStyle.value).map(([k, v]) => `${k}:${v}`).join(';'),
+  },
+})
 </script>
 
 <template>
@@ -39,30 +66,20 @@ const headingRuleWidth = computed(() => HEADING_RULE_STYLES[siteConfig.value.hea
 
 <style>
 html {
-  font-size: v-bind('`${sizePx}px`');
+  font-size: var(--font-size-base, 16px);
 }
 
 /* Reduce base font size on mobile — scales all rem-based text down ~2px.
    Keeps body text at an acceptable mobile minimum (≥12px for sm, ≥11px for xs). */
 @media (max-width: 767px) {
   html {
-    font-size: v-bind('`${sizePx - 2}px`');
+    font-size: var(--font-size-mobile, 14px);
   }
-}
-
-:root {
-  --font-heading: v-bind('preset.heading');
-  --font-body: v-bind('preset.body');
-  --content-max-width: v-bind('contentMaxWidth');
-  --prose-text-color: v-bind('proseTextColor');
-  --prose-heading-color: v-bind('headingColor');
-  --prose-emphasis-decoration: v-bind('emphasisDecoration');
-  --heading-rule-width: v-bind('headingRuleWidth');
 }
 
 html, body {
   @apply text-vault-text font-sans;
-  background-color: v-bind('background.bg');
+  background-color: var(--page-bg, #ffffff);
   line-height: 1.7;
 }
 
